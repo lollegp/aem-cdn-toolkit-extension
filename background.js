@@ -9,9 +9,12 @@ import {
   publishRule,
   permissionOrigins,
   responseSummary,
+  validateConfig,
 } from './core.js';
 import { loadConfig, loadSecrets, secureStorage } from './storage.js';
 let queue = Promise.resolve();
+let configurationEpoch = 0;
+let historyEpoch = 0;
 function serial(fn) {
   const next = queue.then(fn);
   queue = next.catch(() => {});
@@ -20,8 +23,9 @@ function serial(fn) {
 const ready = secureStorage();
 startActivation(ready);
 const inFlight = new Set();
-async function logRecord(record) {
+async function logRecord(record, epoch) {
   await serial(async () => {
+    if (epoch !== historyEpoch) return;
     const history =
       (await chrome.storage.local.get('purgeHistory')).purgeHistory || [];
     const index = history.findIndex((r) => r.id === record.id);
@@ -29,27 +33,90 @@ async function logRecord(record) {
     else history.unshift(record);
     await chrome.storage.local.set({ purgeHistory: history.slice(0, 100) });
   });
-  console.info('[AEM CDN Toolkit] Purge', record);
 }
 async function tabContext(tabId) {
   return (await chrome.storage.session.get('publishTabs')).publishTabs?.[tabId];
 }
+async function clearPublishSession() {
+  const rules = await chrome.declarativeNetRequest.getSessionRules();
+  if (rules.length)
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: rules.map((r) => r.id),
+    });
+  await chrome.storage.session.remove(['secrets', 'publishTabs']);
+}
 async function clearCredentials() {
+  configurationEpoch++;
   await serial(async () => {
-    const rules = await chrome.declarativeNetRequest.getSessionRules();
-    if (rules.length)
-      await chrome.declarativeNetRequest.updateSessionRules({
-        removeRuleIds: rules.map((r) => r.id),
-      });
-    await chrome.storage.session.remove(['secrets', 'publishTabs']);
+    try {
+      await clearPublishSession();
+    } finally {
+      configurationEpoch++;
+    }
   });
   return { text: 'Session keys and active publish headers cleared.' };
 }
+function credentialIdentity(config) {
+  return JSON.stringify(
+    config.environments
+      .map(({ name, publishUrl, countries, edgeKey, purgeKey }) => ({
+        name,
+        publishUrl,
+        countries,
+        edgeKey,
+        purgeKey,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  );
+}
+async function saveConfiguration(message) {
+  const next = validateConfig(message.config);
+  return serial(async () => {
+    let current;
+    try {
+      current = await loadConfig();
+    } catch {
+      current = null;
+    }
+    if (JSON.stringify(current) !== JSON.stringify(message.expectedConfig))
+      throw new Error(
+        'Configuration changed in another Settings tab. Reload Settings before saving.',
+      );
+    configurationEpoch++;
+    try {
+      if (
+        message.clearCredentials ||
+        !current ||
+        credentialIdentity(current) !== credentialIdentity(next)
+      )
+        await clearPublishSession();
+      await chrome.storage.local.set({ config: next });
+      return { text: 'Configuration saved.' };
+    } finally {
+      configurationEpoch++;
+    }
+  });
+}
 async function execute(message) {
   await ready;
+  if (message.action === 'clearHistory')
+    return serial(async () => {
+      await chrome.storage.local.remove(['purgeHistory']);
+      historyEpoch++;
+      return { text: 'Activity cleared.' };
+    });
+  const recordEpoch = historyEpoch;
   if (message.action === 'context')
     return { context: await tabContext(message.tabId) };
   if (message.action === 'clearCredentials') return clearCredentials();
+  if (message.action === 'saveConfiguration') return saveConfiguration(message);
+  const epoch = configurationEpoch;
+  const assertCurrent = () => {
+    if (epoch !== configurationEpoch)
+      throw new Error(
+        'Configuration changed. Reopen the popup before continuing.',
+      );
+  };
   const config = await loadConfig();
   const env = config.environments.find((e) => e.name === message.environment);
   if (!env) throw new Error('Invalid environment.');
@@ -83,22 +150,43 @@ async function execute(message) {
     });
     return { text: 'Random cache parameter added.' };
   }
+  const request =
+    message.action === 'publish'
+      ? { url: page.publishUrl.href, mode: env.publishOpenMode }
+      : purgeRequest(env, page, message.action === 'purgeAll' ? 'all' : 'page');
+  if (
+    message.expectedTarget !== request.url ||
+    message.expectedMode !== request.mode ||
+    message.expectedForwardedHost !== page.forwardedHost
+  )
+    throw new Error(
+      'Action settings changed or are unavailable. Reopen the popup and review the target before continuing.',
+    );
   if (!(await chrome.permissions.contains({ origins: permissionOrigins(env) })))
     throw new Error(
       'Grant access to the configured domains in Settings or the popup.',
     );
-  const secrets = (await loadSecrets())[env.name] || {};
+  const secrets = (await loadSecrets(config))[env.name] || {};
   if (message.action === 'publish') {
     const headers = requestHeaders(secrets, page.forwardedHost);
     return serial(async () => {
-      const win = await chrome.windows.create({
-        url: 'about:blank',
-        type: 'normal',
-        focused: true,
-      });
-      const id = win.tabs?.[0]?.id;
+      assertCurrent();
+      const newWindow = env.publishOpenMode === 'window';
+      let win;
+      const opened = newWindow
+        ? (win = await chrome.windows.create({
+            url: 'about:blank',
+            type: 'normal',
+            focused: true,
+          })).tabs?.[0]
+        : await chrome.tabs.create({
+            url: 'about:blank',
+            active: true,
+            windowId: tab.windowId,
+          });
+      const id = opened?.id;
       if (id === undefined) {
-        await chrome.windows.remove(win.id);
+        if (win?.id !== undefined) await chrome.windows.remove(win.id);
         throw new Error('Unable to create a publish tab.');
       }
       try {
@@ -117,7 +205,12 @@ async function execute(message) {
         await chrome.storage.session.set({ publishTabs: tabs });
         await chrome.tabs.update(id, { url: page.publishUrl.href });
         return {
-          text: 'Publish opened in a new window for ' + page.country.code + '.',
+          text:
+            'Publish opened in a new ' +
+            (newWindow ? 'window' : 'tab') +
+            ' for ' +
+            page.country.code +
+            '.',
         };
       } catch {
         await chrome.declarativeNetRequest
@@ -127,7 +220,8 @@ async function execute(message) {
           (await chrome.storage.session.get('publishTabs')).publishTabs || {};
         delete tabs[id];
         await chrome.storage.session.set({ publishTabs: tabs }).catch(() => {});
-        await chrome.windows.remove(win.id).catch(() => {});
+        if (newWindow) await chrome.windows.remove(win.id).catch(() => {});
+        else await chrome.tabs.remove(id).catch(() => {});
         throw new Error(
           'Publish navigation failed. Check the configured domains and edge key.',
         );
@@ -136,14 +230,10 @@ async function execute(message) {
   }
   if (['purge', 'purgeAll'].includes(message.action)) {
     const scope = message.action === 'purgeAll' ? 'all' : 'page';
-    if (
-      requiresPurgeConfirmation(env, scope) &&
-      message.confirmation !== (scope === 'all' ? 'PURGE ' + env.name : 'page')
-    )
+    if (requiresPurgeConfirmation(env, scope) && message.confirmation !== scope)
       throw new Error(
         'Purge confirmation is required. Reopen the popup if environment settings changed.',
       );
-    const request = purgeRequest(env, page, scope);
     const headers = requestHeaders(secrets, page.forwardedHost, request.mode);
     // Keep the environment quiet until its current purge request completes.
     if (inFlight.has(env.name))
@@ -158,14 +248,17 @@ async function execute(message) {
       country: page.country.code,
       scope,
       mode: request.mode,
-      target: request.url,
+      target: new URL(request.url).origin + new URL(request.url).pathname,
       forwardedHost: page.forwardedHost,
       state: 'pending',
     };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 25000);
+    let requestStarted = false;
     try {
-      await logRecord(record);
+      await logRecord(record, recordEpoch);
+      assertCurrent();
+      requestStarted = true;
       const response = await fetch(request.url, {
         method: 'PURGE',
         headers,
@@ -196,7 +289,7 @@ async function execute(message) {
         ...result,
         finishedAt: new Date().toISOString(),
       };
-      await logRecord(final);
+      await logRecord(final, recordEpoch);
       if (result.state === 'failed')
         return {
           ok: false,
@@ -216,13 +309,15 @@ async function execute(message) {
     } catch (error) {
       const final = {
         ...record,
-        state: 'unknown',
+        state: requestStarted ? 'unknown' : 'failed',
         finishedAt: new Date().toISOString(),
-        error: controller.signal.aborted
+        error: !requestStarted
+          ? 'Request was not sent. Settings changed or local activity could not be saved. Reopen the popup.'
+          : controller.signal.aborted
           ? 'Request timed out after 25 seconds. Verify before retrying.'
           : 'Network request failed. Verify the outcome before retrying.',
       };
-      await logRecord(final);
+      await logRecord(final, recordEpoch);
       return { ok: false, text: final.error, record: final };
     } finally {
       clearTimeout(timer);
@@ -252,11 +347,18 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     ![
       'context',
       'clearCredentials',
+      'saveConfiguration',
+      'clearHistory',
       'bypass',
       'publish',
       'purge',
       'purgeAll',
     ].includes(message?.action)
+  )
+    return false;
+  if (
+    ['saveConfiguration', 'clearHistory'].includes(message.action) &&
+    senderURL !== chrome.runtime.getURL('options.html')
   )
     return false;
   execute(message).then(

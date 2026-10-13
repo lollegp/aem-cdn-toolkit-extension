@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaults } from '../core.js';
+import {
+  defaults,
+  validateConfig,
+  resolvePage,
+  purgeRequest,
+} from '../core.js';
 let listener,
   removed,
   currentURL = 'https://us.example.invalid/ports?_cacheBust=123#map';
@@ -73,6 +78,11 @@ globalThis.chrome = {
     setBadgeText: async () => {},
   },
   tabs: {
+    create: async (details) => {
+      events.push({ type: 'tab', ...details });
+      return { id: 50 };
+    },
+    remove: async () => events.push({ type: 'closeTab' }),
     query: async () => [],
     get: async (id) => ({ id, url: currentURL }),
     update: async (id, details) =>
@@ -119,26 +129,50 @@ globalThis.fetch = async (url, init) => {
 const logs = [];
 console.info = (...args) => logs.push(args);
 await import('../background.js');
-const send = (action, overrides = {}) =>
-  new Promise((resolve) =>
-    listener(
+const send = (action, overrides = {}) => {
+  const message = {
+    action,
+    environment: 'DEV',
+    country: 'US',
+    tabId: 1,
+    expectedURL: currentURL,
+    confirmation: action === 'purgeAll' ? 'all' : 'page',
+    ...overrides,
+  };
+  try {
+    const env = validateConfig(config).environments.find(
+      (entry) => entry.name === message.environment,
+    );
+    const page = resolvePage(env, message.expectedURL, message.country);
+    const request =
+      action === 'publish'
+        ? { url: page.publishUrl.href, mode: env.publishOpenMode }
+        : purgeRequest(env, page, action === 'purgeAll' ? 'all' : 'page');
+    Object.assign(
+      message,
       {
-        action,
-        environment: 'DEV',
-        country: 'US',
-        tabId: 1,
-        expectedURL: currentURL,
-        confirmation: action === 'purgeAll' ? 'PURGE DEV' : 'page',
-        ...overrides,
+        expectedTarget: request.url,
+        expectedMode: request.mode,
+        expectedForwardedHost: page.forwardedHost,
       },
+      overrides,
+    );
+  } catch {
+    // Invalid page and policy tests must reach the background validation.
+  }
+  return new Promise((resolve) =>
+    listener(
+      message,
       { id: 'test', url: 'chrome-extension://test/popup.html' },
       resolve,
     ),
   );
+};
 test('Publish sets edge key and source host before navigation and saves country context', async () => {
   const r = await send('publish');
   assert.equal(r.ok, true);
   assert.equal(events[0].url, 'about:blank');
+  assert.equal(events[0].type, 'tab');
   assert.equal(events[1].type, 'rules');
   assert.equal(events[2].type, 'navigate');
   assert.deepEqual(rules.get(51).action.requestHeaders, [
@@ -168,7 +202,7 @@ test('Page purge uses PURGE publish URL and all required environment headers wit
   assert.ok(!JSON.stringify(logs).includes('edge-key-value'));
   assert.ok(!JSON.stringify(logs).includes('purge-key-value'));
 });
-test('Full environment purge is one all request against the root with typed confirmation', async () => {
+test('Full environment purge is one all request against the root with checkbox confirmation', async () => {
   config.environments[0].confirmPagePurge = true;
   config.environments[0].confirmFullPurge = true;
   const before = fetchCount;
@@ -222,10 +256,7 @@ test('Background rejects page and full requests without configured confirmation'
       );
     assert.equal(fetchCount, before);
     assert.equal((await send('purge', { confirmation: 'page' })).ok, true);
-    assert.equal(
-      (await send('purgeAll', { confirmation: 'PURGE DEV' })).ok,
-      true,
-    );
+    assert.equal((await send('purgeAll', { confirmation: 'all' })).ok, true);
   } finally {
     config.environments[0].confirmPagePurge = false;
     config.environments[0].confirmFullPurge = false;
@@ -257,10 +288,7 @@ test('Background enforces page and full confirmation independently', async () =>
       false,
     );
     assert.equal(fetchCount, afterPage);
-    assert.equal(
-      (await send('purgeAll', { confirmation: 'PURGE DEV' })).ok,
-      true,
-    );
+    assert.equal((await send('purgeAll', { confirmation: 'all' })).ok, true);
   } finally {
     env.confirmPagePurge = false;
     env.confirmFullPurge = false;
@@ -304,7 +332,7 @@ test('Disabled full purge is rejected from saved policy even with forged enable 
   try {
     const r = await send('purgeAll', {
       fullPurgeEnabled: true,
-      confirmation: 'PURGE DEV',
+      confirmation: 'all',
     });
     assert.equal(r.ok, false);
     assert.match(r.text, /Full environment purge is disabled for DEV/);
@@ -458,4 +486,21 @@ test('Only exact Settings and popup URLs from this extension are trusted', () =>
       ),
       false,
     );
+});
+
+test('Publish opens a new window only when configured', async () => {
+  events.length = 0;
+  currentURL = 'https://us.example.invalid/ports';
+  granted = true;
+  session.secrets = { DEV: { edgeKey: 'edge-key-value' } };
+  config.environments[0].publishOpenMode = 'window';
+  try {
+    const r = await send('publish');
+    assert.equal(r.ok, true);
+    assert.equal(events[0].type, 'normal');
+    assert.equal(events[0].focused, true);
+    assert.match(r.text, /new window/);
+  } finally {
+    delete config.environments[0].publishOpenMode;
+  }
 });

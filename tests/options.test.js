@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaults } from '../core.js';
+import { defaults, validateConfig } from '../core.js';
 import { loadConfig, loadSecrets } from '../storage.js';
 
 class Element {
@@ -52,18 +52,23 @@ async function setup({ savedConfig = defaults() } = {}) {
     'emptyEnvironments',
     'addEnvironment',
     'removeEnvironment',
+    'moveEnvironmentUp',
+    'moveEnvironmentDown',
     'environmentDialog',
     'newEnvironmentName',
     'createEnvironment',
     'cancelEnvironment',
     'environmentStatus',
     'save',
+    'discardChanges',
+    'exportKeys',
     'export',
     'import',
-    'bundled',
+    'resetConfiguration',
     'importFile',
     'status',
     'publishUrl',
+    'publishOpenMode',
     'cacheParam',
     'purgeMode',
     'fullPurgeEnabled',
@@ -126,9 +131,33 @@ async function setup({ savedConfig = defaults() } = {}) {
     },
     runtime: {
       getURL: (path) => 'chrome-extension://test/' + path,
-      sendMessage: async () => {
-        events.push('cleanup');
+      sendMessage: async (message) => {
+        assert.equal(message.action, 'saveConfiguration');
+        if (
+          message.clearCredentials ||
+          (message.config.environments.length ===
+            local.config.environments.length &&
+            message.config.environments.some(
+              (env) =>
+                !local.config.environments.some((old) => old.name === env.name),
+            ))
+        )
+          events.push('cleanup');
         if (state.cleanupError) throw state.cleanupError;
+        if (!state.response?.ok) return state.response;
+        if (
+          JSON.stringify(message.expectedConfig) !==
+          JSON.stringify(validateConfig(local.config))
+        )
+          return {
+            ok: false,
+            text: 'Configuration changed in another Settings tab. Reload Settings before saving.',
+          };
+        try {
+          await chrome.storage.local.set({ config: message.config });
+        } catch (error) {
+          return { ok: false, text: error.message };
+        }
         return state.response;
       },
     },
@@ -251,8 +280,11 @@ test('Import blocks cancellation and duplicate submissions while cleanup runs', 
   const h = await setup();
   await h.choose();
   let release;
-  chrome.runtime.sendMessage = () =>
-    new Promise((resolve) => (release = resolve));
+  const writer = chrome.runtime.sendMessage;
+  chrome.runtime.sendMessage = (message) =>
+    new Promise(
+      (resolve) => (release = async () => resolve(await writer(message))),
+    );
   const first = h.elements.applyImport.click();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(h.elements.cancelImport.disabled, true);
@@ -270,12 +302,17 @@ test('Import blocks cancellation and duplicate submissions while cleanup runs', 
   assert.equal(h.events.filter((e) => e === 'save').length, 1);
   assert.equal(h.elements.cancelImport.disabled, false);
 });
-test('Bundled configuration uses cleanup and removes the saved override', async () => {
+test('Reset saves an empty configuration across restarts and preserves activity', async () => {
   const h = await setup();
-  await h.elements.bundled.click();
-  assert.equal(h.local.config, undefined);
-  assert.deepEqual(h.events, ['cleanup', 'remove']);
+  h.local.purgeHistory = [{ status: 'success' }];
+  await h.elements.resetConfiguration.click();
+  assert.deepEqual(h.local.config, { version: 2, environments: [] });
+  assert.deepEqual(h.events, ['cleanup', 'save']);
   assert.equal(h.elements.edgeKey.value, '');
+  assert.equal(h.elements.environment.children.length, 0);
+  assert.deepEqual((await loadConfig()).environments, []);
+  assert.deepEqual(await loadSecrets(), {});
+  assert.deepEqual(h.local.purgeHistory, [{ status: 'success' }]);
 });
 test('Settings saves independent purge availability and confirmation choices for each environment', async () => {
   const h = await setup();
@@ -363,9 +400,11 @@ test('Cancelling environment removal preserves mappings and credentials', async 
 test('Clearing keys blocks overlapping environment mutations until credentials are saved empty', async () => {
   const h = await setup();
   let release;
-  chrome.runtime.sendMessage = () => {
-    h.events.push('cleanup');
-    return new Promise((resolve) => (release = resolve));
+  const writer = chrome.runtime.sendMessage;
+  chrome.runtime.sendMessage = (message) => {
+    return new Promise(
+      (resolve) => (release = async () => resolve(await writer(message))),
+    );
   };
   const clearing = h.elements.clearSecrets.click();
   assert.equal(h.elements.save.disabled, true);
@@ -373,7 +412,7 @@ test('Clearing keys blocks overlapping environment mutations until credentials a
   assert.equal(h.elements.addEnvironment.disabled, true);
   const renaming = h.elements.save.click(),
     removing = h.elements.removeEnvironment.click();
-  assert.deepEqual(h.events, ['cleanup']);
+  assert.deepEqual(h.events, []);
   release({ ok: true });
   await clearing;
   await renaming;
@@ -385,4 +424,121 @@ test('Clearing keys blocks overlapping environment mutations until credentials a
   );
   assert.equal(h.elements.save.disabled, false);
   assert.equal(h.elements.removeEnvironment.disabled, false);
+});
+
+test('Environment order persists while selection, keys and unsaved edits remain intact', async () => {
+  const h = await setup();
+  assert.equal(h.elements.moveEnvironmentUp.disabled, true);
+  h.elements.environment.value = 'PROD';
+  h.elements.environment.listeners.change();
+  assert.equal(h.elements.moveEnvironmentDown.disabled, true);
+  h.elements.environmentName.value = 'Unsaved name';
+  await h.elements.moveEnvironmentUp.click();
+  assert.deepEqual(
+    h.local.config.environments.map((env) => env.name),
+    ['DEV', 'DEV2', 'TEST', 'PROD', 'STAGE'],
+  );
+  assert.equal(h.elements.environment.value, 'PROD');
+  assert.equal(h.elements.environmentName.value, 'Unsaved name');
+  assert.equal(h.local.config.environments[0].edgeKey, 'existing-edge');
+  assert.equal(h.events.includes('cleanup'), false);
+  await h.elements.moveEnvironmentDown.click();
+  assert.equal(h.local.config.environments.at(-1).name, 'PROD');
+  const saves = h.events.length;
+  await h.elements.moveEnvironmentDown.click();
+  assert.equal(h.events.length, saves);
+  const reloaded = await setup({ savedConfig: h.local.config });
+  assert.deepEqual(
+    reloaded.elements.environment.children.map((option) => option.value),
+    h.local.config.environments.map((env) => env.name),
+  );
+});
+
+test('Empty environment list disables both reorder actions', async () => {
+  const h = await setup({ savedConfig: { version: 2, environments: [] } });
+  assert.equal(h.elements.moveEnvironmentUp.disabled, true);
+  assert.equal(h.elements.moveEnvironmentDown.disabled, true);
+});
+
+test('Reordering locks overlapping actions and preserves order when saving fails', async () => {
+  const h = await setup();
+  const original = structuredClone(h.local.config);
+  let rejectSave;
+  chrome.storage.local.set = () =>
+    new Promise((resolve, reject) => {
+      rejectSave = reject;
+    });
+  const moving = h.elements.moveEnvironmentDown.click();
+  assert.equal(h.elements.moveEnvironmentDown.disabled, true);
+  assert.equal(h.elements.addEnvironment.disabled, true);
+  await h.elements.moveEnvironmentDown.click();
+  await h.elements.removeEnvironment.click();
+  rejectSave(new Error('Storage unavailable'));
+  await moving;
+  assert.deepEqual(h.local.config, original);
+  assert.deepEqual(
+    h.elements.environment.children.map((option) => option.value),
+    original.environments.map((env) => env.name),
+  );
+  assert.equal(h.elements.environment.value, 'DEV');
+  assert.equal(h.elements.status.textContent, 'Storage unavailable');
+  assert.equal(h.elements.moveEnvironmentDown.disabled, false);
+  assert.equal(h.elements.moveEnvironmentUp.disabled, true);
+});
+
+test('Reset cancellation and cleanup failure preserve saved configuration', async () => {
+  const h = await setup();
+  const original = structuredClone(h.local.config);
+  h.state.confirmRemove = false;
+  await h.elements.resetConfiguration.click();
+  assert.deepEqual(h.events, []);
+  h.state.confirmRemove = true;
+  h.state.response = { ok: false, text: 'Cleanup failed' };
+  await h.elements.resetConfiguration.click();
+  assert.deepEqual(h.local.config, original);
+  assert.equal(h.elements.status.textContent, 'Cleanup failed');
+  assert.equal(h.elements.resetConfiguration.disabled, false);
+});
+
+test('Settings defaults publish to a new tab and saves the window preference', async () => {
+  const h = await setup();
+  assert.equal(h.elements.publishOpenMode.value, 'tab');
+  h.elements.publishOpenMode.value = 'window';
+  await h.elements.save.click();
+  assert.equal(h.local.config.environments[0].publishOpenMode, 'window');
+  const reopened = await setup({ savedConfig: h.local.config });
+  assert.equal(reopened.elements.publishOpenMode.value, 'window');
+});
+
+test('Unsaved changes survive a cancelled environment switch and can be discarded explicitly', async () => {
+  const h = await setup();
+  h.elements.environmentName.value = 'Unsaved name';
+  h.elements.environmentFields.listeners.input();
+  assert.match(h.elements.status.textContent, /Unsaved/);
+  h.state.confirmRemove = false;
+  h.elements.environment.value = 'PROD';
+  h.elements.environment.listeners.change();
+  assert.equal(h.elements.environment.value, 'DEV');
+  assert.equal(h.elements.environmentName.value, 'Unsaved name');
+  await h.elements.discardChanges.click();
+  assert.equal(h.elements.environmentName.value, 'DEV');
+  assert.equal(h.elements.discardChanges.disabled, true);
+});
+test('Stale Settings save reports a conflict without restoring newer keys', async () => {
+  const h = await setup();
+  h.local.config.environments[0].edgeKey = 'newer-key';
+  await h.elements.save.click();
+  assert.equal(h.local.config.environments[0].edgeKey, 'newer-key');
+  assert.match(h.elements.status.textContent, /another Settings tab/);
+});
+
+test('Clearing keys warns before discarding unrelated draft edits', async () => {
+  const h = await setup();
+  h.elements.environmentName.value = 'Draft';
+  h.elements.environmentFields.listeners.input();
+  h.state.confirmRemove = false;
+  await h.elements.clearSecrets.click();
+  assert.equal(h.elements.environmentName.value, 'Draft');
+  assert.equal(h.local.config.environments[0].edgeKey, 'existing-edge');
+  assert.deepEqual(h.events, []);
 });

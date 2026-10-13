@@ -53,6 +53,7 @@ def image(size, active):
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b"")
 
 
-for state in ("neutral", "green"):
-    for size in (16, 32, 48, 128):
-        (OUTPUT / f"toolkit-{state}-{size}.png").write_bytes(image(size, state == "green"))
+if __name__ == "__main__":
+    for state in ("neutral", "green"):
+        for size in (16, 32, 48, 128):
+            (OUTPUT / f"toolkit-{state}-{size}.png").write_bytes(image(size, state == "green"))

@@ -1,5 +1,6 @@
 import {
   createEnvironment,
+  exportConfiguration,
   validateConfig,
   validateHeaders,
   permissionOrigins,
@@ -9,9 +10,29 @@ const $ = (id) => document.getElementById(id);
 let config,
   secrets,
   pendingImport,
-  bundledConfig,
   importing = false,
-  busy = false;
+  busy = false,
+  dirty = false,
+  shownEnvironment = '';
+function markDirty() {
+  dirty = true;
+  $('discardChanges').disabled = busy;
+  status('Unsaved changes');
+}
+function canDiscard() {
+  return !dirty || confirm('Discard unsaved changes to this environment?');
+}
+$('environmentFields').addEventListener('input', markDirty);
+$('environmentFields').addEventListener('change', markDirty);
+$('discardChanges').addEventListener('click', () => {
+  if (!busy) show();
+});
+document.defaultView?.addEventListener('beforeunload', (event) => {
+  if (dirty) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
 function status(text, error = false) {
   $('status').textContent = text;
   $('status').dataset.error = error;
@@ -41,8 +62,33 @@ function environmentStatus(text, error = false) {
   $('environmentStatus').textContent = text;
   $('environmentStatus').dataset.error = error;
 }
+async function moveEnvironment(offset) {
+  if (busy || !selected()) return;
+  const name = selected().name,
+    index = config.environments.findIndex((env) => env.name === name),
+    destination = index + offset;
+  if (destination < 0 || destination >= config.environments.length) return;
+  buttonLock(true);
+  try {
+    const draft = structuredClone(config);
+    [draft.environments[index], draft.environments[destination]] = [
+      draft.environments[destination],
+      draft.environments[index],
+    ];
+    await persistConfig(draft);
+    config = draft;
+    renderEnvironments(name);
+    status('Environment order saved.');
+  } catch (error) {
+    status(error.message, true);
+  } finally {
+    buttonLock(false);
+  }
+}
+$('moveEnvironmentUp').addEventListener('click', () => moveEnvironment(-1));
+$('moveEnvironmentDown').addEventListener('click', () => moveEnvironment(1));
 $('addEnvironment').addEventListener('click', () => {
-  if (busy || !config) return;
+  if (busy || !config || !canDiscard()) return;
   $('newEnvironmentName').value = '';
   environmentStatus('');
   $('environmentDialog').showModal();
@@ -63,7 +109,7 @@ $('createEnvironment').addEventListener('click', async () => {
     const validated = validateConfig(draft),
       name = validated.environments.at(-1).name;
     buttonLock(true);
-    await chrome.storage.local.set({ config: validated });
+    await persistConfig(validated);
     config = validated;
     secrets = await loadSecrets();
     renderEnvironments(name);
@@ -89,8 +135,7 @@ $('removeEnvironment').addEventListener('click', async () => {
       ...config,
       environments: config.environments.filter((env) => env.name !== name),
     });
-    await clearSecrets();
-    await chrome.storage.local.set({ config: validated });
+    await persistConfig(validated, true);
     config = validated;
     secrets = await loadSecrets();
     renderEnvironments();
@@ -128,7 +173,10 @@ function addCountry(
   const remove = document.createElement('button');
   remove.textContent = 'Remove';
   remove.className = 'secondary';
-  remove.addEventListener('click', () => row.remove());
+  remove.addEventListener('click', () => {
+    row.remove();
+    markDirty();
+  });
   row.append(remove);
   $('countries').append(row);
 }
@@ -137,12 +185,16 @@ function readCountries() {
     Object.fromEntries(
       [...row.querySelectorAll('input')].map((i) => [
         i.dataset.field,
-        i.value.trim(),
+        i.dataset.field === 'code'
+          ? i.value.trim().toUpperCase()
+          : i.value.trim(),
       ]),
     ),
   );
 }
 function show() {
+  dirty = false;
+  shownEnvironment = $('environment').value;
   const e = selected();
   $('emptyEnvironments').hidden = !!e;
   if (!e) {
@@ -168,6 +220,7 @@ function show() {
   const s = secrets[e.name] || {};
   $('environmentName').value = e.name;
   $('publishUrl').value = e.publishUrl;
+  $('publishOpenMode').value = e.publishOpenMode;
   $('cacheParam').value = e.cacheParam;
   $('purgeMode').value = e.purgeMode;
   $('fullPurgeEnabled').checked = e.fullPurgeEnabled;
@@ -180,24 +233,26 @@ function show() {
   buttonLock(busy);
   status('');
 }
-async function clearSecrets() {
-  let r;
+async function persistConfig(next, clearCredentials = false) {
+  let response;
   try {
-    r = await chrome.runtime.sendMessage({ action: 'clearCredentials' });
+    response = await chrome.runtime.sendMessage({
+      action: 'saveConfiguration',
+      config: next,
+      expectedConfig: config || null,
+      clearCredentials,
+    });
   } catch {
     throw new Error(
       'The extension background did not respond. Reload the extension in chrome://extensions, then reopen Settings.',
     );
   }
-  if (!r)
+  if (!response)
     throw new Error(
       'The extension background did not respond. Reload the extension in chrome://extensions, then reopen Settings.',
     );
-  if (!r.ok)
-    throw new Error(
-      r.text || 'Unable to clear active publish headers and session keys.',
-    );
-  secrets = {};
+  if (!response.ok)
+    throw new Error(response.text || 'Unable to save configuration.');
 }
 function buttonLock(value) {
   busy = value;
@@ -205,7 +260,7 @@ function buttonLock(value) {
     'save',
     'import',
     'export',
-    'bundled',
+    'resetConfiguration',
     'environment',
     'clearSecrets',
     'applyImport',
@@ -216,11 +271,28 @@ function buttonLock(value) {
     'cancelEnvironment',
   ].forEach((id) => ($(id).disabled = value));
   $('environmentFields').disabled = value || !selected();
+  $('environmentFields').hidden = !selected();
+  $('discardChanges').disabled = value || !dirty;
   $('save').disabled = value || !selected();
   $('removeEnvironment').disabled = value || !selected();
+  const index = config?.environments.findIndex(
+    (env) => env.name === $('environment').value,
+  );
+  $('moveEnvironmentUp').disabled = value || !(index > 0);
+  $('moveEnvironmentDown').disabled =
+    value || !(index >= 0 && index < config.environments.length - 1);
 }
-$('environment').addEventListener('change', show);
-$('addCountry').addEventListener('click', () => addCountry());
+$('environment').addEventListener('change', () => {
+  if (!canDiscard()) {
+    $('environment').value = shownEnvironment;
+    return;
+  }
+  show();
+});
+$('addCountry').addEventListener('click', () => {
+  addCountry();
+  markDirty();
+});
 $('save').addEventListener('click', async () => {
   if (busy || !selected()) return;
   try {
@@ -230,6 +302,7 @@ $('save').addEventListener('click', async () => {
       e = draft.environments.find((e) => e.name === originalName);
     e.name = name;
     e.publishUrl = $('publishUrl').value.trim();
+    e.publishOpenMode = $('publishOpenMode').value;
     e.cacheParam = $('cacheParam').value.trim();
     e.purgeMode = $('purgeMode').value;
     e.countries = readCountries();
@@ -237,8 +310,8 @@ $('save').addEventListener('click', async () => {
     e.confirmPagePurge = $('confirmPagePurge').checked;
     e.confirmFullPurge = $('confirmFullPurge').checked;
     const values = {
-      edgeKey: $('edgeKey').value,
-      purgeKey: $('purgeKey').value,
+      edgeKey: $('edgeKey').value.trim(),
+      purgeKey: $('purgeKey').value.trim(),
     };
     validateHeaders(
       Object.fromEntries(Object.entries(values).filter(([, v]) => v)),
@@ -251,15 +324,36 @@ $('save').addEventListener('click', async () => {
     buttonLock(true);
     if (origins.length && !(await chrome.permissions.request({ origins })))
       throw new Error('Domain access was not granted.');
-    if (name !== originalName) await clearSecrets();
-    await chrome.storage.local.set({ config: validated });
+    await persistConfig(validated);
     config = validated;
     secrets = await loadSecrets();
     renderEnvironments(name);
     show();
+    status(name + ' saved. Open publish again to use updated access settings.');
+  } catch (error) {
+    status(error.message, true);
+  } finally {
+    buttonLock(false);
+  }
+});
+$('resetConfiguration').addEventListener('click', async () => {
+  if (busy) return;
+  if (
+    !confirm(
+      'Reset configuration? This deletes all saved environments, mappings and keys, and clears active publish headers. Activity logs are retained. Export your configuration first if you want to keep it.',
+    )
+  )
+    return;
+  buttonLock(true);
+  try {
+    const empty = validateConfig({ version: 2, environments: [] });
+    await persistConfig(empty, true);
+    config = empty;
+    secrets = {};
+    renderEnvironments();
+    show();
     status(
-      name +
-        ' saved. Reopen existing publish windows to apply changed keys or mappings.',
+      'Configuration reset. All environments and saved keys removed; activity is retained.',
     );
   } catch (error) {
     status(error.message, true);
@@ -267,39 +361,26 @@ $('save').addEventListener('click', async () => {
     buttonLock(false);
   }
 });
-$('bundled').addEventListener('click', async () => {
-  buttonLock(true);
-  try {
-    const origins = [
-      ...new Set(bundledConfig.environments.flatMap(permissionOrigins)),
-    ];
-    if (origins.length && !(await chrome.permissions.request({ origins })))
-      throw new Error('Domain access was not granted.');
-    await clearSecrets();
-    await chrome.storage.local.remove('config');
-    config = await loadConfig();
-    secrets = await loadSecrets();
-    renderEnvironments();
-    show();
-    status('Bundled config.json loaded. Its environment keys are now active.');
-  } catch (error) {
-    status(error.message, true);
-  } finally {
-    buttonLock(false);
-  }
-});
 $('export').addEventListener('click', () => {
+  if (busy || !config) return;
+  const exported = exportConfiguration(config, $('exportKeys').checked);
   const url = URL.createObjectURL(
-    new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }),
+    new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' }),
   );
   const a = document.createElement('a');
   a.href = url;
   a.download = 'aem-cdn-config.json';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  status('Saved configuration exported including environment keys.');
+  status(
+    $('exportKeys').checked
+      ? 'Configuration exported including saved keys. Keep this file private.'
+      : 'Configuration exported without keys.',
+  );
 });
-$('import').addEventListener('click', () => $('importFile').click());
+$('import').addEventListener('click', () => {
+  if (!busy && canDiscard()) $('importFile').click();
+});
 $('importFile').addEventListener('change', async () => {
   pendingImport = undefined;
   try {
@@ -328,7 +409,7 @@ $('importDialog').addEventListener('cancel', (event) => {
   if (importing) event.preventDefault();
 });
 $('applyImport').addEventListener('click', async () => {
-  if (importing || !pendingImport) return;
+  if (busy || importing || !pendingImport) return;
   const imported = pendingImport;
   importing = true;
   buttonLock(true);
@@ -339,8 +420,7 @@ $('applyImport').addEventListener('click', async () => {
     ];
     if (origins.length && !(await chrome.permissions.request({ origins })))
       throw new Error('Domain access was not granted.');
-    await clearSecrets();
-    await chrome.storage.local.set({ config: imported });
+    await persistConfig(imported, true);
     config = imported;
     secrets = await loadSecrets();
     renderEnvironments();
@@ -359,11 +439,10 @@ $('applyImport').addEventListener('click', async () => {
   }
 });
 $('clearSecrets').addEventListener('click', async () => {
-  if (busy || !config) return;
+  if (busy || !config || !canDiscard()) return;
   buttonLock(true);
   try {
-    await clearSecrets();
-    config = validateConfig({
+    const cleared = validateConfig({
       ...config,
       environments: config.environments.map((e) => ({
         ...e,
@@ -371,7 +450,8 @@ $('clearSecrets').addEventListener('click', async () => {
         purgeKey: '',
       })),
     });
-    await chrome.storage.local.set({ config });
+    await persistConfig(cleared, true);
+    config = cleared;
     secrets = await loadSecrets();
     show();
     status('Saved keys and active publish headers cleared.');
@@ -383,14 +463,12 @@ $('clearSecrets').addEventListener('click', async () => {
 });
 try {
   await secureStorage();
-  bundledConfig = validateConfig(
-    await (await fetch(chrome.runtime.getURL('config.json'))).json(),
-  );
   config = await loadConfig();
   secrets = await loadSecrets();
   renderEnvironments();
   show();
 } catch (error) {
   status(error.message, true);
-  $('save').disabled = true;
+  config = undefined;
+  buttonLock(false);
 }

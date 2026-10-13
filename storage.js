@@ -6,8 +6,8 @@ export async function loadConfig() {
   if (!response.ok) throw new Error('Unable to load bundled config.json.');
   return validateConfig(await response.json());
 }
-export async function loadSecrets() {
-  const config = await loadConfig();
+export async function loadSecrets(config = undefined) {
+  config ??= await loadConfig();
   const legacy = (await chrome.storage.session.get('secrets')).secrets || {};
   return Object.fromEntries(
     config.environments.map((env) => [

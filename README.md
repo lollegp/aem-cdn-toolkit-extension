@@ -1,4 +1,4 @@
-# AEM CDN Toolkit 2.4
+# AEM CDN Toolkit 2.5
 
 Chrome Manifest V3 extension for Adobe AEM as a Cloud Service CDN purge, public country mappings, authenticated publish access and random cache parameters. All interface text, messages, documentation and tests are in English. No build step or runtime dependencies are required.
 
@@ -8,16 +8,18 @@ Chrome Manifest V3 extension for Adobe AEM as a Cloud Service CDN purge, public 
 2. Open `chrome://extensions` and enable **Developer mode**.
 3. Select **Load unpacked** and choose the `aem-cdn-toolkit` folder containing `manifest.json`.
 4. If updating an existing installation, replace its source files (including the `icons` folder), press **Reload** on the extension card, then close and reopen Settings and any popup already open.
-5. Open the extension options from its Details page, then save environments or select **Use bundled config.json** to grant access to configured domains.
+5. Open the extension options from its Details page, then save environments to grant access to configured domains.
 6. Pin the extension. Its icon displays a green dot on configured public and publish domains. The popup remains accessible on every tab so you can always open Settings.
 
 Existing version 1 configurations are migrated when each environment has one publish origin. Country labels are initially generated as SITE1, SITE2 and so on. Rename them to your country codes. Generic CDN API settings are replaced by the direct AEM CDN integration. Keys can now be configured directly at environment level in JSON and remain available after restart.
 
 ## Environment and country settings
 
-The environment list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are starter examples. Each environment has one publish origin and its countries share the environment edge key and purge key.
+Fresh installations start with no environments. The list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are examples in the optional config.example.json template. Each environment has one publish origin and its countries share the environment edge key and purge key.
 
 In Settings, use **Add environment** to create an environment with a unique name. Configure its publish URL, country mappings, keys and purge settings, then save. Edit **Environment name** and save to rename it. Names are trimmed and must be unique regardless of case. **Remove environment** removes its saved mappings and keys after confirmation. Renaming or removing an environment clears active publish headers; reopen publish windows afterward. Activity records retain their original environment labels. You can remove every environment and add new ones later.
+
+Use the **up and down arrow buttons** beside the Settings environment dropdown to reorder the selected environment. Order is saved immediately and included in exported configurations. Unsaved field edits remain intact.
 
 New custom environments start with full purge disabled and both confirmations off. JSON imports may contain any number of environments, including an empty list. The existing one-megabyte import size limit still applies.
 
@@ -29,7 +31,7 @@ New custom environments start with full purge disabled and both confirmations of
 | Page purge mode                | Environment | Soft or hard, with soft as the default                                                                             |
 | Enable full environment purge  | Environment | Controls the full purge action; disabled for newly created custom environments                                     |
 | Confirm page purge             | Environment | Requires confirmation for current-page purge only; disabled by default                                             |
-| Confirm full environment purge | Environment | Requires confirmation and an exact typed environment name for full purge only; disabled by default                 |
+| Confirm full environment purge | Environment | Requires a confirmation checkbox for full purge only; disabled by default                                          |
 | Random cache parameter         | Environment | Query parameter name using letters, numbers, underscores, dots or hyphens, for example `_cacheBust` or `cache-key` |
 | Country code                   | Country     | Unique label such as GB, IE or US                                                                                  |
 | Public URL                     | Country     | Public site origin, optionally with a path prefix                                                                  |
@@ -37,7 +39,7 @@ New custom environments start with full purge disabled and both confirmations of
 
 Different environments must use different publish origins. This keeps purge targets and per-environment settings unambiguous.
 
-Edit the bundled `config.json` directly, or import `config.example.json`, for a template with three countries per environment, then replace the fictional `.example.invalid` URLs. Save each environment before switching. Unsaved changes are discarded when you switch environments. Saving requests optional domain access for the configured public hosts and publish host.
+Add your own environments in Settings, or adapt `config.example.json` as an import template, replacing its fictional `.example.invalid` URLs. Release config.json must stay empty. Save each environment before switching. Switching environments warns about unsaved edits; Discard changes restores the saved values. Closing Settings also warns when edits are pending. Saving requests optional domain access for the configured public hosts and publish host.
 
 To import, select **Import JSON**, choose a file, then select **Import** in the confirmation dialog and grant access to its configured domains. The extension clears active publish headers before saving the replacement configuration. Errors appear inside the dialog so you can retry. Invalid files, denied domain access, and failed header cleanup leave the saved configuration unchanged. Cancel or Escape discards the pending import; cancellation is blocked while an import is running.
 
@@ -79,7 +81,7 @@ The extension preserves the path, query and fragment when opening publish. It do
 
 The toolbar displays a green dot when the current tab uses an exact configured HTTPS public or publish origin, including its port. Domain recognition covers all paths on that origin. The tooltip lists the matching environments. A neutral dot indicates an unmatched or unsupported URL, unavailable domain access, or invalid configuration. A green dot confirms a configured domain; it does not validate credentials or CDN connectivity.
 
-Grant access to configured hosts by saving, importing, or selecting **Use bundled config.json** in Settings first. The extension uses those host grants to read matching tab URLs and requests no global browsing permission. Navigation, tab switching, configuration changes, domain permission changes, and worker startup refresh the toolbar state.
+Grant access to configured hosts by saving or importing in Settings first. The extension uses those host grants to read matching tab URLs and requests no global browsing permission. Navigation, tab switching, configuration changes, domain permission changes, and worker startup refresh the toolbar state.
 
 Click the icon on any tab to open the popup and access Settings. Page actions are disabled until the current URL resolves to a valid country mapping. Public path prefixes still match at path boundaries, so a page outside its configured prefix can have a green dot while its actions remain disabled. A unique environment and public country are selected automatically. Multiple matching environments require an explicit environment selection; a manually opened publish URL requires an explicit country selection.
 
@@ -95,7 +97,7 @@ If a public page has no mapping, or its selected country does not match the actu
 
 ## Open AEM publish
 
-Select **Open AEM publish**. The extension creates a new normal window, installs scoped request header rules, saves the country context and then navigates to publish.
+Select **Open AEM publish**. The extension opens a new tab by default. In Settings, choose **Open publish page in** for each environment and save to use a new window instead. Both modes install scoped request header rules and save the country context before navigating to publish. Existing configurations default to a new tab.
 
 Publish requests contain:
 
@@ -128,7 +130,7 @@ The edge key and purge key must already be configured in your AEM CDN authentica
 
 ## Purge entire environment
 
-**Purge entire environment** is available only when **Enable full environment purge** is selected in that environment's Settings. The starter configurations enable it for DEV, DEV2, TEST and STAGE and disable it for PROD. Newly created custom environments start with it disabled. It uses one request to the publish origin root:
+**Purge entire environment** is available only when **Enable full environment purge** is selected in that environment's Settings. The optional example template enables it for DEV, DEV2, TEST and STAGE and disables it for PROD; fresh installations contain no environments. Newly created custom environments start with it disabled. It uses one request to the publish origin root:
 
 ```http
 PURGE https://publish-p123456-e123456.adobeaemcloud.com/
@@ -140,7 +142,7 @@ X-AEM-Purge: all
 
 This is Adobe's full service purge, covering all cached resources in the selected AEM environment, including its countries. It is not a loop over known pages or country domains. The forwarded host comes from the current public country context, while the full purge scope belongs to the AEM service.
 
-With confirmation disabled, selecting the full purge action sends the request immediately. With **Confirm full environment purge** enabled, the popup requires both a checked confirmation box and the exact text `PURGE` followed by the environment name, such as `PURGE DEV` or `PURGE PROD`.
+With confirmation disabled, selecting the full purge action sends the request immediately. With **Confirm full environment purge** enabled, the popup requires a checked confirmation box before sending.
 
 PROD full purge can be enabled explicitly in PROD Settings. A disabled full purge action is hidden in the popup, and the background handler rejects the request using the saved environment policy before any network call. Current page purge remains available regardless of the full purge setting.
 
@@ -181,9 +183,9 @@ Its effectiveness depends on the CDN cache key or bypass configuration. It modif
 
 ## Credential handling and permissions
 
-Environment settings, including `edgeKey` and `purgeKey`, are stored locally and remain available after restart. On a fresh installation, the extension loads the bundled `config.json` automatically. A configuration imported or saved in Settings takes precedence over the bundled file. After editing the bundled file in an existing installation, reload the extension and select **Use bundled config.json** once to remove the saved override and activate the file. Key values in JSON and local extension storage are plaintext, not an encrypted vault.
+Environment settings, including `edgeKey` and `purgeKey`, are stored locally and remain available after restart. On a fresh installation, the extension loads the empty bundled `config.json`. A configuration imported or saved in Settings takes precedence over the bundled file. **Reset configuration** deletes all saved environments, mappings and keys and clears active publish headers after confirmation. It saves an empty configuration, so bundled examples do not return after restart. Activity logs remain. Export your configuration before resetting if you want a backup. Key values in JSON and local extension storage are plaintext, not an encrypted vault.
 
-Configuration imports and exports include the environment keys. Treat configuration files as credentials. Imports clear active publish rules and load the keys from the imported configuration. **Clear saved keys and active headers** saves empty keys in the local configuration and removes active request header rules and saved publish country contexts. It does not modify the bundled file. Selecting **Use bundled config.json** restores the keys configured in that file. Keys remain excluded from console logs and purge activity.
+Imports can contain environment keys. Exports omit keys by default; select Include saved keys for a private credential backup. Treat configuration files as credentials. Imports clear active publish rules and load the keys from the imported configuration. **Clear saved keys and active headers** saves empty keys in the local configuration and removes active request header rules and saved publish country contexts. It does not modify the bundled file. Keys remain excluded from console logs and purge activity.
 
 The extension requests `activeTab`, `storage` and `declarativeNetRequestWithHostAccess`, with optional HTTPS host access. There are no content scripts or remote scripts. HTTP, incognito windows and redirecting purge endpoints are unsupported.
 
@@ -200,7 +202,7 @@ npm run check
 
 `npm run check` runs ESLint, verifies formatting with Prettier, and runs the complete test suite. Use `npm run lint:fix` and `npm run format` to apply lint fixes and formatting, or `npm test` to run tests alone. Development tool versions and their dependency tree are pinned in `package-lock.json`.
 
-The package includes 86 tests covering configurable environment lists, environment creation/rename/removal, separate confirmation policies and legacy migration, direct section links, activity rendering, credential-clearing race protection, optional confirmation, explicit PROD full purge, duplicate-click prevention, import failures, hyphenated cache parameters, trusted Settings-tab messages, packaged PNG icons, toolbar updates, synchronous worker listeners, country mapping, shared publish contexts, header scoping, purge construction, response tracking, secret exclusion, and migration. Options and popup tests use a simulated DOM; background and activation tests mock browser APIs and network calls.
+The test suite covers configurable environment lists, environment creation/rename/removal, separate confirmation policies and legacy migration, direct section links, activity rendering, credential-clearing race protection, optional confirmation, explicit PROD full purge, duplicate-click prevention, import failures, hyphenated cache parameters, trusted Settings-tab messages, packaged PNG icons, toolbar updates, synchronous worker listeners, country mapping, shared publish contexts, header scoping, purge construction, response tracking, secret exclusion, and migration. Options and popup tests use a simulated DOM; background and activation tests mock browser APIs and network calls.
 
 The automated suite uses synthetic credentials and sends no real AEM purge requests. Native browser rendering is a separate verification step. After configuration, validate page purge and publish access in DEV before using other environments.
 
@@ -212,3 +214,13 @@ The PNG icons are packaged with the extension and require no build step. To rege
 2. [Adobe CDN credentials and authentication](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-credentials-authentication)
 3. [Adobe CDN purge tutorial and response formats](https://experienceleague.adobe.com/en/docs/experience-manager-learn/cloud-service/caching/how-to/purge-cache)
 4. [Chrome declarativeNetRequest](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest)
+
+## Release package and website
+
+Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.5.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
+
+The bundled [help page](help.html) and [privacy policy](privacy.html) also form the public site. The Pages workflow runs only when manually dispatched. After committing these files explicitly, enable GitHub Pages with GitHub Actions as source and run **Publish help and privacy site**. Expected site: https://lollegp.github.io/aem-cdn-toolkit-extension/.
+
+See [store listing and release checklist](docs/store/RELEASE.md). Creating the ZIP does not publish the site or submit the extension. Live Chrome behavior and screenshots still require the documented manual checks.
+
+Configuration writes are serialized in the background worker and compare the expected saved configuration, so a stale Settings tab cannot silently overwrite newer data. Credential or mapping changes clear publish session state; pending actions are invalidated if configuration changes. New activity records omit query strings and fragments; older records can be removed with Clear activity.

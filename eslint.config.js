@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**', '.idea/**'] },
+  { ignores: ['node_modules/**', '.idea/**', 'dist/**'] },
   js.configs.recommended,
   {
     files: ['**/*.js'],

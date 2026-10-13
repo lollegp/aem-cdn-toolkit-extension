@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="AEM CDN Toolkit: configure environments, open authenticated publish pages and manage AEM CDN cache from Chrome."
+    />
+    <title>AEM CDN Toolkit · Help &amp; support</title>
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img
+          src="icons/toolkit-neutral-48.png"
+          width="36"
+          height="36"
+          alt=""
+        />AEM CDN Toolkit
+      </div>
+      <nav aria-label="Main">
+        <a href="#setup">Setup</a><a href="privacy.html">Privacy</a
+        ><a
+          href="https://github.com/lollegp/aem-cdn-toolkit-extension/issues"
+          rel="noreferrer"
+          >Support</a
+        >
+      </nav>
+    </header>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">A TOOLKIT FOR AEM TEAMS</p>
+        <h1>Your page. Your environment. One place to act.</h1>
+        <p class="intro">
+          Open authenticated publish pages, bypass cache and send targeted CDN
+          purge requests from the page you are working on.
+        </p>
+        <a class="button" href="#setup">Get started</a
+        ><a
+          href="https://github.com/lollegp/aem-cdn-toolkit-extension"
+          rel="noreferrer"
+          >View project on GitHub ↗</a
+        >
+      </section>
+      <div class="grid">
+        <section class="card">
+          <h2>Configure your way</h2>
+          <p>
+            Create and reorder environments. Map countries to public sites.
+            Choose page and full-purge confirmations independently.
+          </p>
+        </section>
+        <section class="card">
+          <h2>Act on the current page</h2>
+          <p>
+            A green toolbar dot identifies configured domains. Open publish in a
+            tab or window, add a cache parameter, or purge the current page.
+          </p>
+        </section>
+        <section class="card">
+          <h2>Keep a clear record</h2>
+          <p>
+            Check request status, search activity and inspect request IDs.
+            Configuration and activity stay in your Chrome profile.
+          </p>
+        </section>
+      </div>
+      <section id="setup" class="guide">
+        <h2>Set up your first environment</h2>
+        <ol>
+          <li>Open the extension popup, then <strong>Settings</strong>.</li>
+          <li>
+            Select <strong>Add environment</strong> and enter a unique name.
+          </li>
+          <li>
+            Enter the HTTPS AEM publish origin, then add a public country URL
+            and its publish path prefix.
+          </li>
+          <li>Enter your edge key. Add a purge key if you need CDN purge.</li>
+          <li>
+            Choose the publish opening mode and purge controls. Full purge is
+            disabled for new environments.
+          </li>
+          <li>
+            Select <strong>Save environment</strong> and grant access to the
+            configured hosts.
+          </li>
+          <li>
+            Visit a matching public page and open the popup. Select the
+            environment and country if more than one matches.
+          </li>
+        </ol>
+        <p>
+          You need access to an AEM as a Cloud Service publish environment and
+          its CDN keys. This tool does not provision AEM or issue credentials.
+        </p>
+      </section>
+      <section class="guide">
+        <h2>Understand purge results</h2>
+        <p>
+          <strong>Succeeded</strong> means the server returned an explicit “ok”
+          response. <strong>Accepted</strong> means the HTTP request succeeded
+          without explicit completion confirmation.
+          <strong>Unknown</strong> means the request outcome could not be
+          confirmed; verify before retrying.
+        </p>
+        <p>
+          Full purge affects all cached resources and countries for the selected
+          publish service. Enable it only for environments where you intend to
+          use it.
+        </p>
+      </section>
+      <section class="guide">
+        <h2>Back up and troubleshoot</h2>
+        <p>
+          Import, export and reset are at the bottom of Settings. Exports omit
+          keys by default; select “Include saved keys” only for a private
+          backup. Reset clears environments and keys but retains activity, which
+          has its own clear control.
+        </p>
+        <p>
+          If changes do not appear after a local update, reload the extension in
+          Chrome's extension manager, then close and reopen Settings and the
+          popup. The publish button shows whether the saved setting opens a tab
+          or a window.
+        </p>
+        <p>
+          <a
+            href="https://github.com/lollegp/aem-cdn-toolkit-extension/issues"
+            rel="noreferrer"
+            >Report an issue or request help</a
+          >. Include the extension version and error text. Never include
+          credentials, private URLs, or exported configurations containing keys.
+        </p>
+      </section>
+    </main>
+    <footer>
+      Independent community tool. Not affiliated with or endorsed by Adobe or
+      Google. <a href="privacy.html">Privacy policy</a>.
+    </footer>
+  </body>
+</html>

@@ -2,10 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 class Element {
   constructor() {
+    this.value = '';
     this.textContent = '';
     this.children = [];
     this.listeners = {};
     this.dataset = {};
+  }
+  set textContent(value) {
+    this.text = value;
+  }
+  get textContent() {
+    return this.text + this.children.map((child) => child.textContent).join('');
   }
   append(child) {
     this.children.push(child);
@@ -21,17 +28,29 @@ class Element {
 let instance = 0;
 async function setup(records = []) {
   const elements = Object.fromEntries(
-    ['history', 'refreshHistory', 'clearHistory', 'activityStatus'].map(
-      (id) => [id, new Element()],
-    ),
+    [
+      'history',
+      'refreshHistory',
+      'clearHistory',
+      'activityStatus',
+      'historySearch',
+      'historyState',
+    ].map((id) => [id, new Element()]),
   );
   const state = { records },
     listeners = {};
   globalThis.document = {
     getElementById: (id) => elements[id],
-    createElement: () => new Element(),
+    createElement: (tag) => Object.assign(new Element(), { tag }),
   };
   globalThis.chrome = {
+    runtime: {
+      sendMessage: async (message) => {
+        assert.equal(message.action, 'clearHistory');
+        state.records = [];
+        return { ok: true };
+      },
+    },
     storage: {
       local: {
         get: async () => ({ purgeHistory: state.records }),
@@ -93,4 +112,72 @@ test('Activity refreshes on log changes and its own clear CTA leaves an empty st
   await elements.clearHistory.listeners.click();
   assert.deepEqual(state.records, []);
   assert.equal(elements.history.textContent, 'No purge requests recorded.');
+});
+
+test('Activity shows distinct status icons and bold labels with literal log values', async () => {
+  const records = ['succeeded', 'failed', 'pending', 'unknown'].map(
+    (state) => ({
+      id: state,
+      environment: 'QA',
+      country: 'US',
+      scope: 'page',
+      state,
+      startedAt: new Date().toISOString(),
+      target: '<script>literal</script>',
+      forwardedHost: 'public.example.invalid',
+      mode: 'soft',
+      httpStatus: 500,
+      error: 'Example error',
+    }),
+  );
+  const { elements } = await setup(records);
+  const icons = ['✅', '❌', '⏳', '⚠️'];
+  elements.history.children.forEach((card, index) => {
+    assert.ok(card.children[0].textContent.includes(icons[index]));
+    const rows = card.children[1].children;
+    const purge = rows.find((row) => row.children[0].textContent === 'PURGE ');
+    assert.equal(purge.children[0].tag, 'strong');
+    assert.equal(purge.children[1].textContent, '<script>literal</script>');
+    assert.ok(rows.some((row) => row.children[0].textContent === 'Mode: '));
+  });
+});
+
+test('Activity filters by effective status and a case-insensitive search', async () => {
+  const records = ['accepted', 'failed'].map((state) => ({
+    id: state,
+    state,
+    environment: 'QA Europe',
+    country: 'US',
+    scope: 'page',
+    startedAt: new Date().toISOString(),
+    target: 'https://publish.example.invalid/page',
+    mode: 'soft',
+  }));
+  const h = await setup(records);
+  assert.match(
+    h.elements.history.children[0].children[0].textContent,
+    /📨.*ACCEPTED/,
+  );
+  h.elements.historyState.value = 'failed';
+  await h.elements.historyState.listeners.change();
+  assert.equal(h.elements.history.children.length, 1);
+  h.elements.historySearch.value = 'missing';
+  await h.elements.historySearch.listeners.input();
+  assert.match(h.elements.history.textContent, /No requests match/);
+  h.elements.historySearch.value = 'europe';
+  await h.elements.historySearch.listeners.input();
+  assert.equal(h.elements.history.children.length, 1);
+});
+
+test('Failed activity clearing keeps records and shows an actionable error', async () => {
+  const h = await setup([
+    { state: 'succeeded', startedAt: new Date().toISOString(), id: 'kept' },
+  ]);
+  chrome.runtime.sendMessage = async () => ({
+    ok: false,
+    text: 'Cannot clear activity',
+  });
+  await h.elements.clearHistory.listeners.click();
+  assert.equal(h.state.records.length, 1);
+  assert.equal(h.elements.activityStatus.textContent, 'Cannot clear activity');
 });

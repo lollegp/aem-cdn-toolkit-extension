@@ -12,7 +12,18 @@ test('Manifest supplies valid neutral PNG icons and green variants at each decla
       manifest.action.default_icon?.[size],
       'icons/toolkit-neutral-' + size + '.png',
     );
-    assert.equal(manifest.icons?.[size], manifest.action.default_icon[size]);
+    assert.equal(
+      manifest.icons?.[size],
+      size === 128
+        ? 'icons/toolkit-store-128.png'
+        : manifest.action.default_icon[size],
+    );
+    const packagedIcon = await readFile(
+      new URL('../' + manifest.icons[size], import.meta.url),
+    );
+    assert.deepEqual(packagedIcon.subarray(0, 8), signature);
+    assert.equal(packagedIcon.readUInt32BE(16), size);
+    assert.equal(packagedIcon.readUInt32BE(20), size);
     const images = [];
     for (const state of ['neutral', 'green']) {
       const image = await readFile(

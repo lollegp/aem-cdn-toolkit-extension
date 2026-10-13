@@ -3,13 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>AEM CDN Toolkit</title>
+    <title>AEM CDN Toolkit · Settings</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="settings">
-      <div class="eyebrow">AEM · CDN · TOOLKIT</div>
-      <div class="section-tabs" role="tablist" aria-label="Toolkit sections">
+      <header class="app-header">
+        <div class="brand">
+          <img
+            src="icons/toolkit-neutral-48.png"
+            width="36"
+            height="36"
+            alt=""
+          />
+          <div>
+            <span class="eyebrow">AEM CDN TOOLKIT</span>
+            <p>Manage your environments. Work from any page.</p>
+          </div>
+        </div>
+        <a href="help.html" target="_blank" rel="noreferrer"
+          >Help &amp; privacy ↗</a
+        >
+      </header>
+      <nav class="section-tabs" role="tablist" aria-label="Toolkit sections">
         <button
           id="settingsTab"
           role="tab"
@@ -27,143 +43,282 @@
         >
           Purge activity
         </button>
-      </div>
+      </nav>
       <section id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab">
-        <h1>Environment settings</h1>
-        <p class="muted">
-          Configure any number of environments, each with one publish origin,
-          CDN keys and public country sites.
-        </p>
-        <div class="toolbar">
-          <select id="environment" aria-label="Environment"></select>
-          <button id="addEnvironment" class="secondary">Add environment</button>
-          <button id="removeEnvironment" class="secondary">
+        <div class="section-heading">
+          <div>
+            <h1>Environment settings</h1>
+            <p class="muted">
+              Set up once. Open a matching site to use the toolkit.
+            </p>
+          </div>
+          <button id="addEnvironment">+ Add environment</button>
+        </div>
+        <div id="emptyEnvironments" class="empty-state" hidden>
+          <h2>Start with your first environment</h2>
+          <p>
+            Add an environment, its AEM publish URL and a public site mapping.
+            Or import a configuration using the controls below.
+          </p>
+          <p class="hint">
+            Your configuration stays in this browser. No account required.
+          </p>
+        </div>
+        <div class="toolbar environment-toolbar">
+          <div class="environment-picker">
+            <select
+              id="environment"
+              aria-label="Environment"
+              aria-describedby="environmentOrderHint"
+            ></select>
+            <div
+              class="environment-order"
+              role="group"
+              aria-label="Reorder selected environment"
+            >
+              <button
+                id="moveEnvironmentUp"
+                class="secondary order-button"
+                aria-label="Move selected environment earlier"
+                title="Move earlier in the list"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M12 19V5m-6 6 6-6 6 6" />
+                </svg>
+              </button>
+              <button
+                id="moveEnvironmentDown"
+                class="secondary order-button"
+                aria-label="Move selected environment later"
+                title="Move later in the list"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M12 5v14m-6-6 6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <button id="removeEnvironment" class="danger-outline">
             Remove environment
           </button>
-          <button id="save">Save environment</button>
         </div>
-        <div class="toolbar">
-          <button id="export" class="secondary">Export configuration</button>
-          <button id="import" class="secondary">Import JSON</button>
-          <button id="bundled" class="secondary">
-            Use bundled config.json
-          </button>
-          <input
-            id="importFile"
-            type="file"
-            accept=".json,application/json"
-            hidden
-          />
-        </div>
-        <div id="status" role="status" aria-live="polite"></div>
-        <p id="emptyEnvironments" class="notice" hidden>
-          No environments configured. Add an environment or import a
-          configuration to get started.
+        <p id="environmentOrderHint" class="hint">
+          Arrows reorder environments. Order saves automatically.
         </p>
         <fieldset id="environmentFields" class="environment-fields">
           <section class="card">
-            <h2>Environment</h2>
-            <label for="environmentName">Environment name</label
-            ><input id="environmentName" placeholder="QA EU" />
-            <p class="hint">
-              Use a unique name. Save changes before switching environments.
-              Renaming clears active publish headers.
-            </p>
-            <label for="publishUrl">AEM publish URL</label
-            ><input
-              id="publishUrl"
-              type="url"
-              placeholder="https://publish-p123456-e123456.adobeaemcloud.com/"
-            />
-            <p class="hint">
-              The same publish origin is used by every country in this
-              environment. Enter an HTTPS origin without a path.
-            </p>
+            <div class="card-heading">
+              <span class="step">1</span>
+              <div>
+                <h2>Environment</h2>
+                <p class="muted">
+                  Give it a name and connect the publish service.
+                </p>
+              </div>
+            </div>
             <div class="grid">
               <div>
-                <label for="cacheParam">Random cache parameter</label
-                ><input id="cacheParam" />
+                <label for="environmentName">Environment name</label
+                ><input
+                  id="environmentName"
+                  placeholder="e.g. Production or QA Europe"
+                  autocomplete="off"
+                />
               </div>
               <div>
-                <label for="purgeMode">Current page purge mode</label
-                ><select id="purgeMode">
-                  <option value="soft">Soft purge</option>
-                  <option value="hard">Hard purge</option>
-                </select>
+                <label for="publishUrl">AEM publish URL</label
+                ><input
+                  id="publishUrl"
+                  type="url"
+                  placeholder="https://publish-p123-e456.adobeaemcloud.com/"
+                  spellcheck="false"
+                />
+                <p class="hint">HTTPS origin only, without a content path.</p>
               </div>
             </div>
           </section>
           <section class="card">
-            <h2>Purge settings</h2>
-            <label class="check"
-              ><input id="fullPurgeEnabled" type="checkbox" />Enable full
-              environment purge</label
-            >
-            <p class="hint">
-              Show the full purge action for this environment. It purges all
-              cached resources across every country.
-            </p>
-            <label class="check"
-              ><input id="confirmPagePurge" type="checkbox" />Confirm page
-              purge</label
-            >
-            <p class="hint">
-              Require a confirmation checkbox before purging the current page.
-              Otherwise the request runs on click.
-            </p>
-            <label class="check"
-              ><input id="confirmFullPurge" type="checkbox" />Confirm full
-              environment purge</label
-            >
-            <p class="hint">
-              Require a confirmation checkbox and typing PURGE followed by the
-              environment name before full purge. Otherwise the request runs on
-              click.
-            </p>
-          </section>
-          <section class="card">
-            <div class="topline">
-              <h2>Country mappings</h2>
-              <button id="addCountry" class="secondary">Add country</button>
+            <div class="card-heading">
+              <span class="step">2</span>
+              <div>
+                <h2>Public sites &amp; countries</h2>
+                <p class="muted">
+                  Map each public site to a path on this publish service.
+                </p>
+              </div>
             </div>
             <div id="countries"></div>
+            <button id="addCountry" class="secondary">
+              + Add country mapping
+            </button>
             <p class="hint">
-              Country codes must be unique, for example GB, IE or US. Public URL
-              prefixes are supported. Leave the publish path prefix as / when
-              both URLs use the same path.
+              Example: US · https://www.example.com/ · /content/site/us. Use /
+              when public and publish paths match.
             </p>
           </section>
           <section class="card">
-            <h2>AEM CDN credentials</h2>
+            <div class="card-heading">
+              <span class="step">3</span>
+              <div>
+                <h2>Access keys</h2>
+                <p class="muted">
+                  Shared by all countries in this environment.
+                </p>
+              </div>
+            </div>
             <div class="grid">
               <div>
-                <label for="edgeKey">X-AEM-Edge-Key</label
-                ><input id="edgeKey" type="password" autocomplete="off" />
-                <p class="hint">Used for publish navigation and CDN purge.</p>
+                <label for="edgeKey"
+                  >Edge key
+                  <span class="label-meta">X-AEM-Edge-Key</span></label
+                ><input
+                  id="edgeKey"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <p class="hint">Required for publish access and purge.</p>
               </div>
               <div>
-                <label for="purgeKey">X-AEM-Purge-Key</label
-                ><input id="purgeKey" type="password" autocomplete="off" />
-                <p class="hint">Used only for CDN purge requests.</p>
+                <label for="purgeKey"
+                  >Purge key
+                  <span class="label-meta">X-AEM-Purge-Key</span></label
+                ><input
+                  id="purgeKey"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <p class="hint">Required only for purge.</p>
               </div>
             </div>
             <p class="notice">
-              Keys belong to the environment and are shared by its countries.
-              Keys are saved with the environment and remain available after
-              restart. Imports and exports include keys.
-            </p>
-            <p class="hint">
-              X-Forwarded-Host is derived automatically from the public site's
-              host, without protocol or path. Full environment purge uses
-              X-AEM-Purge: all and follows this environment's purge settings.
+              Keys are saved locally in this Chrome profile, not in an encrypted
+              vault. No keys are sent to the extension developer.
             </p>
           </section>
+          <section class="card">
+            <div class="card-heading">
+              <span class="step">4</span>
+              <div>
+                <h2>Page actions</h2>
+                <p class="muted">
+                  Choose how this environment behaves in the popup.
+                </p>
+              </div>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="publishOpenMode">Open publish page in</label
+                ><select id="publishOpenMode">
+                  <option value="tab">New tab (default)</option>
+                  <option value="window">New window</option>
+                </select>
+              </div>
+              <div>
+                <label for="cacheParam">Cache query parameter</label
+                ><input
+                  id="cacheParam"
+                  placeholder="_cacheBust"
+                  spellcheck="false"
+                />
+                <p class="hint">
+                  A new random value is added when you bypass cache.
+                </p>
+              </div>
+              <div>
+                <label for="purgeMode">Page purge mode</label
+                ><select id="purgeMode">
+                  <option value="soft">
+                    Soft — allow stale content while refreshing
+                  </option>
+                  <option value="hard">
+                    Hard — remove cached content immediately
+                  </option>
+                </select>
+              </div>
+              <div class="check-stack">
+                <label class="check"
+                  ><input id="confirmPagePurge" type="checkbox" />Confirm before
+                  page purge</label
+                >
+                <p class="hint">
+                  Review the target and check a box before sending.
+                </p>
+              </div>
+            </div>
+            <div class="danger-zone">
+              <h3>Entire environment</h3>
+              <p class="hint">
+                Full purge affects all countries and cached resources on this
+                publish service.
+              </p>
+              <label class="check"
+                ><input id="fullPurgeEnabled" type="checkbox" />Enable full
+                environment purge</label
+              ><label class="check"
+                ><input id="confirmFullPurge" type="checkbox" />Confirm before
+                full environment purge</label
+              >
+              <p class="hint">
+                If confirmation is off, the request runs immediately on click.
+              </p>
+            </div>
+          </section>
+        </fieldset>
+        <div class="save-bar">
+          <div id="status" role="status" aria-live="polite"></div>
           <div class="actions">
-            <button id="clearSecrets" class="secondary">
+            <button id="discardChanges" class="secondary">
+              Discard changes</button
+            ><button id="save">Save environment</button>
+          </div>
+        </div>
+        <section class="configuration-tools">
+          <h2>Configuration &amp; data</h2>
+          <p class="muted">
+            Import or export all environments. Reset removes configuration;
+            purge activity is retained.
+          </p>
+          <label class="check"
+            ><input id="exportKeys" type="checkbox" />Include saved keys in
+            export <span class="label-meta">Sensitive</span></label
+          >
+          <div class="actions configuration-actions">
+            <button id="export" class="secondary">Export configuration</button
+            ><button id="import" class="secondary">Import JSON</button
+            ><button id="resetConfiguration" class="danger-outline">
+              Reset configuration</button
+            ><input
+              id="importFile"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            />
+          </div>
+          <details class="maintenance">
+            <summary>Credential maintenance</summary>
+            <p class="hint">
+              Clear keys from every environment and remove active publish
+              headers. Environments and mappings are kept.
+            </p>
+            <button id="clearSecrets" class="danger-outline">
               Clear saved keys and active headers
             </button>
-          </div>
-        </fieldset>
+          </details>
+        </section>
       </section>
       <section
         id="activityPanel"
@@ -171,44 +326,71 @@
         aria-labelledby="activityTab"
         hidden
       >
-        <h1>Purge activity</h1>
-        <p class="muted">
-          Review the latest 100 requests across all environments. Keys and raw
-          response bodies are never logged.
-        </p>
-        <div class="actions">
-          <button id="refreshHistory" class="secondary">Refresh activity</button
-          ><button id="clearHistory" class="secondary">Clear activity</button>
+        <div class="section-heading">
+          <div>
+            <h1>Purge activity</h1>
+            <p class="muted">
+              The latest 100 requests, stored only in this browser.
+            </p>
+          </div>
+          <div class="actions">
+            <button id="refreshHistory" class="secondary">Refresh</button
+            ><button id="clearHistory" class="danger-outline">
+              Clear activity
+            </button>
+          </div>
+        </div>
+        <div class="grid activity-filters">
+          <div>
+            <label for="historySearch">Find a request</label
+            ><input
+              id="historySearch"
+              type="search"
+              placeholder="Environment, country or path"
+            />
+          </div>
+          <div>
+            <label for="historyState">Status</label
+            ><select id="historyState">
+              <option value="">All statuses</option>
+              <option value="succeeded">Succeeded</option>
+              <option value="accepted">Accepted</option>
+              <option value="failed">Failed</option>
+              <option value="pending">Pending</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
         </div>
         <p class="hint">
-          This records the API response, not a separate CDN completion check.
-          Activity remains available after an environment is renamed or removed.
+          Accepted means the server received the request; cache refresh
+          completion is not verified. Unknown means verify before retrying.
         </p>
         <div id="activityStatus" role="status" aria-live="polite"></div>
-        <section class="card">
-          <div id="history" aria-live="polite"></div>
-        </section>
+        <div id="history"></div>
       </section>
-      <dialog id="environmentDialog">
-        <h2>Add environment</h2>
+      <dialog id="environmentDialog" aria-labelledby="environmentDialogTitle">
+        <h2 id="environmentDialogTitle">Add environment</h2>
         <label for="newEnvironmentName">Environment name</label
-        ><input id="newEnvironmentName" placeholder="QA EU" />
+        ><input
+          id="newEnvironmentName"
+          autocomplete="off"
+          placeholder="e.g. Production or QA Europe"
+        />
         <div id="environmentStatus" role="status" aria-live="polite"></div>
         <div class="actions">
           <button id="createEnvironment">Add environment</button
           ><button id="cancelEnvironment" class="secondary">Cancel</button>
         </div>
       </dialog>
-      <dialog id="importDialog">
-        <h2>Import configuration</h2>
+      <dialog id="importDialog" aria-labelledby="importDialogTitle">
+        <h2 id="importDialogTitle">Replace configuration?</h2>
         <p>
-          This replaces all environments, clears active publish headers and
-          loads the environment keys from the imported file. Existing
-          configuration formats are migrated automatically.
+          Import replaces all environments and keys and clears active publish
+          headers. Export your current configuration first if you need a backup.
         </p>
         <div id="importStatus" role="status" aria-live="polite"></div>
         <div class="actions">
-          <button id="applyImport">Import</button
+          <button id="applyImport">Import configuration</button
           ><button id="cancelImport" class="secondary">Cancel</button>
         </div>
       </dialog>

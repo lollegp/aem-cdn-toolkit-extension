@@ -7,6 +7,7 @@ export function createEnvironment(name) {
     countries: [],
     cacheParam: '_cacheBust',
     purgeMode: 'soft',
+    publishOpenMode: 'tab',
     fullPurgeEnabled: false,
     confirmPagePurge: false,
     confirmFullPurge: false,
@@ -216,6 +217,11 @@ export function validateConfig(input) {
       throw new Error(
         'Invalid cache parameter name. Use letters, numbers, underscores, dots or hyphens.',
       );
+    if (
+      e.publishOpenMode !== undefined &&
+      !['tab', 'window'].includes(e.publishOpenMode)
+    )
+      throw new Error('Publish open mode must be tab or window.');
     if (!['soft', 'hard'].includes(e.purgeMode))
       throw new Error('Page purge mode must be soft or hard.');
     for (const field of [
@@ -287,6 +293,7 @@ export function validateConfig(input) {
     return {
       name,
       publishUrl,
+      publishOpenMode: e.publishOpenMode ?? 'tab',
       edgeKey,
       purgeKey,
       countries,
@@ -361,4 +368,14 @@ export function responseSummary(httpStatus, body) {
     httpStatus,
     ...(id ? { purgeId: id } : {}),
   };
+}
+
+export function exportConfiguration(config, includeKeys = false) {
+  const exported = structuredClone(config);
+  if (!includeKeys)
+    for (const env of exported.environments) {
+      env.edgeKey = '';
+      env.purgeKey = '';
+    }
+  return exported;
 }

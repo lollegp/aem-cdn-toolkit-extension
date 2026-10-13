@@ -7,3 +7,5 @@ coverage/
 *.log
 config.local.json
 
+
+dist/

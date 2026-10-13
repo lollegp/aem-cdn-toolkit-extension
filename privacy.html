@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AEM CDN Toolkit · Privacy policy</title>
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img
+          src="icons/toolkit-neutral-48.png"
+          width="36"
+          height="36"
+          alt=""
+        />AEM CDN Toolkit
+      </div>
+      <nav aria-label="Main">
+        <a href="help.html">Help</a
+        ><a
+          href="https://github.com/lollegp/aem-cdn-toolkit-extension/issues"
+          rel="noreferrer"
+          >Support</a
+        >
+      </nav>
+    </header>
+    <main class="policy">
+      <p class="eyebrow">YOUR DATA</p>
+      <h1>Privacy policy</h1>
+      <p>
+        Effective October 13, 2026. This policy describes AEM CDN Toolkit 2.5.0,
+        maintained by the owner of the
+        <a
+          href="https://github.com/lollegp/aem-cdn-toolkit-extension"
+          rel="noreferrer"
+          >lollegp/aem-cdn-toolkit-extension repository</a
+        >.
+      </p>
+      <h2>Purpose</h2>
+      <p>
+        The extension helps you manage Adobe AEM CDN cache and authenticated
+        publish access for environments you configure. No account with the
+        extension developer is required.
+      </p>
+      <h2>Data used and stored</h2>
+      <ul>
+        <li>
+          <strong>Configuration:</strong> environment names, public and publish
+          URLs, country mappings, preferences, edge keys and purge keys are
+          stored locally in Chrome extension storage. Keys are plaintext in your
+          browser profile, not an encrypted vault.
+        </li>
+        <li>
+          <strong>Page URLs:</strong> the extension reads the active tab after
+          you invoke it and receives updates for hosts you permit, to match
+          environments and perform page actions. It does not request access to
+          Chrome browsing history or read page content.
+        </li>
+        <li>
+          <strong>Activity:</strong> up to 100 purge records are stored locally,
+          including time, environment, country, publish origin and path, mode,
+          result and request IDs. New records omit URL query strings and
+          fragments. Records created by older versions may contain query
+          strings; use Clear activity to remove them.
+        </li>
+        <li>
+          <strong>Session state:</strong> publish-tab context and scoped
+          request-header rules temporarily associate your configured edge key
+          and public hostname with a publish tab.
+        </li>
+      </ul>
+      <h2>Where data is sent</h2>
+      <p>
+        When you open publish, the configured edge key and forwarded public
+        hostname are attached to requests to that exact publish origin in the
+        created tab. Purge sends the edge key, purge key, forwarded public
+        hostname, purge mode and target URL directly to your configured HTTPS
+        publish service. Page query parameters can be included in the actual
+        publish or purge request. Adding a cache parameter navigates your
+        existing page.
+      </p>
+      <p>
+        The extension has no developer backend, analytics, advertising, remote
+        code, or telemetry. The developer does not receive your configuration,
+        keys, page activity or purge records. Your configured services process
+        requests under their own policies. Normal publish navigation may use
+        that service's existing browser cookies; purge requests omit cookies.
+      </p>
+      <h2>Permissions and control</h2>
+      <p>
+        Host access is requested for the explicit HTTPS hosts in your
+        configuration. The extension uses active-tab access, local and session
+        storage, and tab-scoped request-header rules to provide its features.
+        Incognito operation is disabled. Configuration is not synced by this
+        extension.
+      </p>
+      <p>
+        Exports exclude keys by default. If you choose to include keys, protect
+        the downloaded JSON as a credential file. Imported files are processed
+        locally.
+      </p>
+      <h2>Retention and deletion</h2>
+      <p>
+        Configuration remains until you edit, reset it, or uninstall the
+        extension. Reset configuration clears environments, keys and publish
+        session state but keeps activity. Clear saved keys removes keys and
+        active header rules while retaining mappings. Clear activity deletes
+        local purge history. Closing a publish tab removes its associated header
+        rule and context. Uninstalling removes extension storage; files you
+        exported remain wherever you saved them.
+      </p>
+      <h2>Use limitations and third parties</h2>
+      <p>
+        Data is used only to provide these user-facing features. It is not sold,
+        used for advertising, or transferred to data brokers. Use and transfer
+        of information received through Chrome APIs follow the Chrome Web Store
+        User Data Policy, including Limited Use requirements.
+      </p>
+      <p>
+        The public help site is hosted on GitHub Pages. Visiting it or opening a
+        GitHub support link is subject to GitHub's privacy practices and hosting
+        logs. These pages contain no analytics or tracking scripts.
+      </p>
+      <h2>Contact and changes</h2>
+      <p>
+        For support or privacy questions,
+        <a
+          href="https://github.com/lollegp/aem-cdn-toolkit-extension/issues"
+          rel="noreferrer"
+          >open an issue in the project repository</a
+        >. Issues are public: do not post keys, private URLs or other sensitive
+        information. Policy updates will be published on this page when handling
+        practices change.
+      </p>
+    </main>
+    <footer><a href="help.html">Back to help</a> · AEM CDN Toolkit</footer>
+  </body>
+</html>

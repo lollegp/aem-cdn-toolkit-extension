@@ -45,6 +45,10 @@ function controls() {
   $('activity').disabled = false;
   const env = selected(),
     policy = purgePolicy(env);
+  $('publish').textContent =
+    env?.publishOpenMode === 'window'
+      ? 'Open publish in new window'
+      : 'Open publish in new tab';
   $('purgeAll').hidden = !policy.fullPurgeEnabled;
   $('purgeAll').disabled = busy || !actionable || !policy.fullPurgeEnabled;
   $('bulkHint').textContent = !env
@@ -112,10 +116,27 @@ async function latest() {
 }
 async function run(action) {
   if (busy) return;
+  let expectedAction;
   try {
     const p = page();
-    if (['purge', 'purgeAll'].includes(action))
-      purgeRequest(selected(), p, action === 'purgeAll' ? 'all' : 'page');
+    if (action === 'publish')
+      expectedAction = {
+        expectedTarget: p.publishUrl.href,
+        expectedMode: selected().publishOpenMode,
+        expectedForwardedHost: p.forwardedHost,
+      };
+    if (['purge', 'purgeAll'].includes(action)) {
+      const request = purgeRequest(
+        selected(),
+        p,
+        action === 'purgeAll' ? 'all' : 'page',
+      );
+      expectedAction = {
+        expectedTarget: request.url,
+        expectedMode: request.mode,
+        expectedForwardedHost: p.forwardedHost,
+      };
+    }
   } catch (error) {
     status(error.message, true);
     return;
@@ -126,7 +147,7 @@ async function run(action) {
     ['purge', 'purgeAll'].includes(action) &&
     requiresPurgeConfirmation(env, action === 'purgeAll' ? 'all' : 'page')
       ? action === 'purgeAll'
-        ? $('confirmation').value
+        ? 'all'
         : action === 'purge'
         ? 'page'
         : undefined
@@ -146,6 +167,7 @@ async function run(action) {
       country,
       tabId: tab.id,
       expectedURL: tab.url,
+      ...expectedAction,
       confirmation,
     });
     if (!r?.ok) throw new Error(r?.text || 'Operation failed.');
@@ -184,10 +206,7 @@ function confirmPurge(action) {
       '\nX-Forwarded-Host: ' +
       p.forwardedHost +
       '\nMode: ' +
-      request.mode +
-      (scope === 'all' ? '\nType PURGE ' + env.name + ' to confirm.' : '');
-    $('bulkConfirm').hidden = scope !== 'all';
-    $('confirmation').value = '';
+      request.mode;
     $('confirmed').checked = false;
     $('confirm').hidden = false;
     status('Review the environment and purge scope before sending.');
@@ -219,13 +238,6 @@ $('sendPurge').addEventListener('click', () => {
   if (!pendingAction || busy) return;
   if (!$('confirmed').checked) {
     status('Confirm the purge request first.', true);
-    return;
-  }
-  if (
-    pendingAction === 'purgeAll' &&
-    $('confirmation').value !== 'PURGE ' + selected().name
-  ) {
-    status('Enter the exact environment confirmation.', true);
     return;
   }
   run(pendingAction);
@@ -277,6 +289,11 @@ try {
     $('environment').value = context.environment;
   updateEnvironment();
   await latest();
+  if (!config.environments.length) {
+    $('match').textContent =
+      'No environments yet. Open Settings to add one or import a configuration.';
+    $('options').textContent = 'Set up environments';
+  }
   if (matches.length > 1)
     status('Multiple environments match. Select the correct one.');
 } catch (error) {

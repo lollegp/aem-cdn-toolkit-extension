@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   defaults,
+  exportConfiguration,
   validateConfig,
   resolvePage,
   matchPublicCountry,
@@ -368,4 +369,31 @@ test('Legacy confirmation migrates to both purge scopes and explicit scope setti
     invalid.environments[0][field] = 'false';
     assert.throws(() => validateConfig(invalid), /must be a boolean/);
   }
+});
+
+test('Publish open mode defaults to tab, supports window and rejects invalid values', () => {
+  const config = defaults();
+  delete config.environments[0].publishOpenMode;
+  assert.equal(validateConfig(config).environments[0].publishOpenMode, 'tab');
+  config.environments[0].publishOpenMode = 'window';
+  assert.equal(
+    validateConfig(config).environments[0].publishOpenMode,
+    'window',
+  );
+  config.environments[0].publishOpenMode = 'invalid';
+  assert.throws(() => validateConfig(config), /Publish open mode/);
+});
+
+test('Exports omit credentials by default without changing saved configuration', () => {
+  const config = defaults();
+  config.environments[0].edgeKey = 'edge-secret';
+  config.environments[0].purgeKey = 'purge-secret';
+  const safe = exportConfiguration(config);
+  assert.equal(safe.environments[0].edgeKey, '');
+  assert.equal(safe.environments[0].purgeKey, '');
+  assert.equal(config.environments[0].edgeKey, 'edge-secret');
+  assert.equal(
+    exportConfiguration(config, true).environments[0].purgeKey,
+    'purge-secret',
+  );
 });

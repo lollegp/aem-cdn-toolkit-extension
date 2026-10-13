@@ -5,3 +5,5 @@ icons/
 package-lock.json
 config.local.json
 
+
+dist/

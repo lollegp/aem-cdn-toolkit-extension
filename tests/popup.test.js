@@ -49,8 +49,6 @@ async function setup({
     'latest',
     'confirm',
     'confirmed',
-    'confirmation',
-    'bulkConfirm',
     'purgeTarget',
     'bypass',
     'publish',
@@ -239,17 +237,14 @@ test('Bulk confirmation is required and the request carries environment and coun
   const { elements, calls } = await setup({ confirmPurge: true });
   elements.purgeAll.listeners.click();
   assert.equal(elements.confirm.hidden, false);
-  assert.equal(elements.bulkConfirm.hidden, false);
   const before = calls.length;
-  elements.confirmed.checked = true;
-  elements.confirmation.value = 'PURGE PROD';
   elements.sendPurge.listeners.click();
   assert.equal(calls.length, before);
-  elements.confirmation.value = 'PURGE DEV';
+  elements.confirmed.checked = true;
   elements.sendPurge.listeners.click();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls.at(-1).action, 'purgeAll');
-  assert.equal(calls.at(-1).confirmation, 'PURGE DEV');
+  assert.equal(calls.at(-1).confirmation, 'all');
   assert.equal(calls.at(-1).country, 'US');
 });
 test('Purge buttons send immediately without confirmation by default', async () => {
@@ -270,7 +265,6 @@ test('Page confirmation is shown only when enabled and requires checking the con
   const before = calls.length;
   elements.purge.listeners.click();
   assert.equal(elements.confirm.hidden, false);
-  assert.equal(elements.bulkConfirm.hidden, true);
   assert.equal(calls.length, before);
   elements.sendPurge.listeners.click();
   assert.equal(calls.length, before);
