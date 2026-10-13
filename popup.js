@@ -2,6 +2,7 @@ import {
   matchPublicCountry,
   resolvePage,
   purgePolicy,
+  requiresPurgeConfirmation,
   purgeRequest,
   permissionOrigins,
 } from './core.js';
@@ -41,6 +42,7 @@ function controls() {
   for (const id of ['bypass', 'publish', 'purge', 'purgeAll', 'sendPurge'])
     $(id).disabled = busy || !actionable;
   $('options').disabled = false;
+  $('activity').disabled = false;
   const env = selected(),
     policy = purgePolicy(env);
   $('purgeAll').hidden = !policy.fullPurgeEnabled;
@@ -49,7 +51,7 @@ function controls() {
     ? ''
     : !policy.fullPurgeEnabled
     ? 'Full environment purge is disabled for ' + env.name + '.'
-    : policy.confirmPurge
+    : policy.confirmFullPurge
     ? 'Full purge affects every country in this AEM environment.'
     : 'Full purge runs immediately and affects every country in this AEM environment.';
   if (
@@ -120,13 +122,15 @@ async function run(action) {
   }
   const env = selected();
   const country = $('country').value;
-  const confirmation = purgePolicy(env).confirmPurge
-    ? action === 'purgeAll'
-      ? $('confirmation').value
-      : action === 'purge'
-      ? 'page'
-      : undefined
-    : undefined;
+  const confirmation =
+    ['purge', 'purgeAll'].includes(action) &&
+    requiresPurgeConfirmation(env, action === 'purgeAll' ? 'all' : 'page')
+      ? action === 'purgeAll'
+        ? $('confirmation').value
+        : action === 'purge'
+        ? 'page'
+        : undefined
+      : undefined;
   busy = true;
   controls();
   status('Request in progress…');
@@ -193,7 +197,13 @@ function confirmPurge(action) {
 }
 function requestPurge(action) {
   if (busy) return;
-  if (purgePolicy(selected()).confirmPurge) return confirmPurge(action);
+  if (
+    requiresPurgeConfirmation(
+      selected(),
+      action === 'purgeAll' ? 'all' : 'page',
+    )
+  )
+    return confirmPurge(action);
   return run(action);
 }
 $('environment').addEventListener('change', () => {
@@ -225,7 +235,12 @@ $('cancelPurge').addEventListener('click', () => {
   pendingAction = undefined;
   status('');
 });
-$('options').addEventListener('click', () => chrome.runtime.openOptionsPage());
+$('options').addEventListener('click', () =>
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#settings') }),
+);
+$('activity').addEventListener('click', () =>
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#activity') }),
+);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.purgeHistory) latest();
 });

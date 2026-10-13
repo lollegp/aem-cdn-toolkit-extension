@@ -1,5 +1,5 @@
 import {
-  ENVIRONMENTS,
+  createEnvironment,
   validateConfig,
   validateHeaders,
   permissionOrigins,
@@ -10,7 +10,8 @@ let config,
   secrets,
   pendingImport,
   bundledConfig,
-  importing = false;
+  importing = false,
+  busy = false;
 function status(text, error = false) {
   $('status').textContent = text;
   $('status').dataset.error = error;
@@ -20,8 +21,90 @@ function importStatus(text, error = false) {
   $('importStatus').dataset.error = error;
 }
 function selected() {
-  return config.environments.find((e) => e.name === $('environment').value);
+  return config?.environments.find((e) => e.name === $('environment').value);
 }
+function renderEnvironments(preferred = $('environment').value) {
+  $('environment').replaceChildren();
+  for (const env of config.environments) {
+    const option = document.createElement('option');
+    option.value = env.name;
+    option.textContent = env.name;
+    $('environment').append(option);
+  }
+  $('environment').value = config.environments.some(
+    (env) => env.name === preferred,
+  )
+    ? preferred
+    : config.environments[0]?.name || '';
+}
+function environmentStatus(text, error = false) {
+  $('environmentStatus').textContent = text;
+  $('environmentStatus').dataset.error = error;
+}
+$('addEnvironment').addEventListener('click', () => {
+  if (busy || !config) return;
+  $('newEnvironmentName').value = '';
+  environmentStatus('');
+  $('environmentDialog').showModal();
+});
+$('cancelEnvironment').addEventListener('click', () => {
+  if (!busy) $('environmentDialog').close();
+});
+$('environmentDialog').addEventListener('cancel', (event) => {
+  if (busy) event.preventDefault();
+});
+$('createEnvironment').addEventListener('click', async () => {
+  if (busy || !config) return;
+  try {
+    const draft = structuredClone(config);
+    draft.environments.push(
+      createEnvironment($('newEnvironmentName').value.trim()),
+    );
+    const validated = validateConfig(draft),
+      name = validated.environments.at(-1).name;
+    buttonLock(true);
+    await chrome.storage.local.set({ config: validated });
+    config = validated;
+    secrets = await loadSecrets();
+    renderEnvironments(name);
+    show();
+    $('environmentDialog').close();
+    status(
+      name +
+        ' added. Configure its publish URL and country mappings, then save.',
+    );
+  } catch (error) {
+    environmentStatus(error.message, true);
+  } finally {
+    buttonLock(false);
+  }
+});
+$('removeEnvironment').addEventListener('click', async () => {
+  if (busy || !selected()) return;
+  const name = selected().name;
+  if (!confirm('Remove ' + name + ' and its saved mappings and keys?')) return;
+  buttonLock(true);
+  try {
+    const validated = validateConfig({
+      ...config,
+      environments: config.environments.filter((env) => env.name !== name),
+    });
+    await clearSecrets();
+    await chrome.storage.local.set({ config: validated });
+    config = validated;
+    secrets = await loadSecrets();
+    renderEnvironments();
+    show();
+    status(
+      name +
+        ' removed. Active publish headers cleared; existing activity is retained.',
+    );
+  } catch (error) {
+    status(error.message, true);
+  } finally {
+    buttonLock(false);
+  }
+});
 function addCountry(
   country = { code: '', publicBaseUrl: '', publishPathPrefix: '/' },
 ) {
@@ -60,17 +143,41 @@ function readCountries() {
   );
 }
 function show() {
-  const e = selected(),
-    s = secrets[e.name] || {};
+  const e = selected();
+  $('emptyEnvironments').hidden = !!e;
+  if (!e) {
+    for (const id of [
+      'environmentName',
+      'publishUrl',
+      'cacheParam',
+      'edgeKey',
+      'purgeKey',
+    ])
+      $(id).value = '';
+    for (const id of [
+      'fullPurgeEnabled',
+      'confirmPagePurge',
+      'confirmFullPurge',
+    ])
+      $(id).checked = false;
+    $('countries').replaceChildren();
+    buttonLock(busy);
+    status('');
+    return;
+  }
+  const s = secrets[e.name] || {};
+  $('environmentName').value = e.name;
   $('publishUrl').value = e.publishUrl;
   $('cacheParam').value = e.cacheParam;
   $('purgeMode').value = e.purgeMode;
   $('fullPurgeEnabled').checked = e.fullPurgeEnabled;
-  $('confirmPurge').checked = e.confirmPurge;
+  $('confirmPagePurge').checked = e.confirmPagePurge;
+  $('confirmFullPurge').checked = e.confirmFullPurge;
   $('edgeKey').value = s.edgeKey || '';
   $('purgeKey').value = s.purgeKey || '';
   $('countries').replaceChildren();
   e.countries.forEach(addCountry);
+  buttonLock(busy);
   status('');
 }
 async function clearSecrets() {
@@ -93,6 +200,7 @@ async function clearSecrets() {
   secrets = {};
 }
 function buttonLock(value) {
+  busy = value;
   [
     'save',
     'import',
@@ -102,21 +210,32 @@ function buttonLock(value) {
     'clearSecrets',
     'applyImport',
     'cancelImport',
+    'addEnvironment',
+    'removeEnvironment',
+    'createEnvironment',
+    'cancelEnvironment',
   ].forEach((id) => ($(id).disabled = value));
+  $('environmentFields').disabled = value || !selected();
+  $('save').disabled = value || !selected();
+  $('removeEnvironment').disabled = value || !selected();
 }
 $('environment').addEventListener('change', show);
 $('addCountry').addEventListener('click', () => addCountry());
 $('save').addEventListener('click', async () => {
+  if (busy || !selected()) return;
   try {
     const draft = structuredClone(config),
-      name = $('environment').value,
-      e = draft.environments.find((e) => e.name === name);
+      originalName = $('environment').value,
+      name = $('environmentName').value.trim(),
+      e = draft.environments.find((e) => e.name === originalName);
+    e.name = name;
     e.publishUrl = $('publishUrl').value.trim();
     e.cacheParam = $('cacheParam').value.trim();
     e.purgeMode = $('purgeMode').value;
     e.countries = readCountries();
     e.fullPurgeEnabled = $('fullPurgeEnabled').checked;
-    e.confirmPurge = $('confirmPurge').checked;
+    e.confirmPagePurge = $('confirmPagePurge').checked;
+    e.confirmFullPurge = $('confirmFullPurge').checked;
     const values = {
       edgeKey: $('edgeKey').value,
       purgeKey: $('purgeKey').value,
@@ -132,9 +251,12 @@ $('save').addEventListener('click', async () => {
     buttonLock(true);
     if (origins.length && !(await chrome.permissions.request({ origins })))
       throw new Error('Domain access was not granted.');
+    if (name !== originalName) await clearSecrets();
     await chrome.storage.local.set({ config: validated });
     config = validated;
     secrets = await loadSecrets();
+    renderEnvironments(name);
+    show();
     status(
       name +
         ' saved. Reopen existing publish windows to apply changed keys or mappings.',
@@ -157,6 +279,7 @@ $('bundled').addEventListener('click', async () => {
     await chrome.storage.local.remove('config');
     config = await loadConfig();
     secrets = await loadSecrets();
+    renderEnvironments();
     show();
     status('Bundled config.json loaded. Its environment keys are now active.');
   } catch (error) {
@@ -220,6 +343,7 @@ $('applyImport').addEventListener('click', async () => {
     await chrome.storage.local.set({ config: imported });
     config = imported;
     secrets = await loadSecrets();
+    renderEnvironments();
     pendingImport = undefined;
     $('importDialog').close();
     show();
@@ -235,6 +359,8 @@ $('applyImport').addEventListener('click', async () => {
   }
 });
 $('clearSecrets').addEventListener('click', async () => {
+  if (busy || !config) return;
+  buttonLock(true);
   try {
     await clearSecrets();
     config = validateConfig({
@@ -251,66 +377,10 @@ $('clearSecrets').addEventListener('click', async () => {
     status('Saved keys and active publish headers cleared.');
   } catch (error) {
     status(error.message, true);
+  } finally {
+    buttonLock(false);
   }
 });
-async function history() {
-  const records =
-    (await chrome.storage.local.get('purgeHistory')).purgeHistory || [];
-  $('history').replaceChildren();
-  if (!records.length) {
-    $('history').textContent = 'No purge requests recorded.';
-    return;
-  }
-  for (const r of records) {
-    const card = document.createElement('article');
-    card.className = 'history-item';
-    const title = document.createElement('strong');
-    const state =
-      r.state === 'pending' && Date.now() - Date.parse(r.startedAt) > 30000
-        ? 'UNKNOWN (request interrupted)'
-        : r.state.toUpperCase();
-    title.textContent =
-      r.environment +
-      ' · ' +
-      r.country +
-      ' · ' +
-      (r.scope === 'all' ? 'ENTIRE ENVIRONMENT' : 'PAGE') +
-      ' · ' +
-      state;
-    card.append(title);
-    const details = document.createElement('p');
-    details.className = 'hint';
-    details.textContent =
-      new Date(r.startedAt).toLocaleString() +
-      '\nPURGE ' +
-      r.target +
-      '\nX-Forwarded-Host: ' +
-      r.forwardedHost +
-      '\nMode: ' +
-      r.mode +
-      (r.httpStatus ? ' · HTTP ' + r.httpStatus : '') +
-      (r.purgeId ? '\nProvider request ID: ' + r.purgeId : '') +
-      '\nLocal request ID: ' +
-      r.id +
-      (r.error ? '\n' + r.error : '');
-    card.append(details);
-    $('history').append(card);
-  }
-}
-$('refreshHistory').addEventListener('click', history);
-$('clearHistory').addEventListener('click', async () => {
-  await chrome.storage.local.remove('purgeHistory');
-  await history();
-});
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.purgeHistory) history();
-});
-for (const name of ENVIRONMENTS) {
-  const o = document.createElement('option');
-  o.value = name;
-  o.textContent = name;
-  $('environment').append(o);
-}
 try {
   await secureStorage();
   bundledConfig = validateConfig(
@@ -318,8 +388,8 @@ try {
   );
   config = await loadConfig();
   secrets = await loadSecrets();
+  renderEnvironments();
   show();
-  await history();
 } catch (error) {
   status(error.message, true);
   $('save').disabled = true;

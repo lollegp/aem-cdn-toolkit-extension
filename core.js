@@ -1,17 +1,23 @@
-export const ENVIRONMENTS = ['DEV', 'DEV2', 'TEST', 'STAGE', 'PROD'];
+export function createEnvironment(name) {
+  return {
+    name,
+    publishUrl: '',
+    edgeKey: '',
+    purgeKey: '',
+    countries: [],
+    cacheParam: '_cacheBust',
+    purgeMode: 'soft',
+    fullPurgeEnabled: false,
+    confirmPagePurge: false,
+    confirmFullPurge: false,
+  };
+}
 export function defaults() {
   return {
     version: 2,
-    environments: ENVIRONMENTS.map((name) => ({
-      name,
-      publishUrl: '',
-      edgeKey: '',
-      purgeKey: '',
-      countries: [],
-      cacheParam: '_cacheBust',
-      purgeMode: 'soft',
+    environments: ['DEV', 'DEV2', 'TEST', 'STAGE', 'PROD'].map((name) => ({
+      ...createEnvironment(name),
       fullPurgeEnabled: name !== 'PROD',
-      confirmPurge: false,
     })),
   };
 }
@@ -96,10 +102,19 @@ export function bypassURL(value, param, randomValue = crypto.randomUUID()) {
   return url.href;
 }
 export function purgePolicy(env) {
+  const legacyFullPurge = ['DEV', 'DEV2', 'TEST', 'STAGE'].includes(
+    env?.name?.toUpperCase(),
+  );
   return {
-    fullPurgeEnabled: env ? env.fullPurgeEnabled ?? env.name !== 'PROD' : false,
-    confirmPurge: env?.confirmPurge ?? false,
+    fullPurgeEnabled: env?.fullPurgeEnabled ?? legacyFullPurge,
+    confirmPagePurge: env?.confirmPagePurge ?? env?.confirmPurge ?? false,
+    confirmFullPurge: env?.confirmFullPurge ?? env?.confirmPurge ?? false,
   };
+}
+export function requiresPurgeConfirmation(env, scope) {
+  if (!['page', 'all'].includes(scope)) throw new Error('Invalid purge scope.');
+  const policy = purgePolicy(env);
+  return scope === 'all' ? policy.confirmFullPurge : policy.confirmPagePurge;
 }
 export function purgeRequest(env, page, scope) {
   if (!['page', 'all'].includes(scope)) throw new Error('Invalid purge scope.');
@@ -172,28 +187,43 @@ export function migrateConfig(config) {
 }
 export function validateConfig(input) {
   const config = migrateConfig(input);
-  if (
-    !config ||
-    config.version !== 2 ||
-    !Array.isArray(config.environments) ||
-    config.environments.length !== 5
-  )
+  if (!config || config.version !== 2 || !Array.isArray(config.environments))
     throw new Error(
-      'Version 2 configuration with five environments is required.',
+      'Version 2 configuration with an environments array is required.',
     );
   const publishOrigins = new Set();
-  const environments = ENVIRONMENTS.map((name) => {
-    const matches = config.environments.filter((e) => e.name === name);
-    if (matches.length !== 1)
-      throw new Error('Missing or duplicate environment: ' + name);
-    const e = matches[0];
+  const names = new Set();
+  const environments = config.environments.map((e) => {
+    if (!e || typeof e !== 'object' || Array.isArray(e))
+      throw new Error('Invalid environment entry.');
+    if (
+      typeof e.name !== 'string' ||
+      !e.name.trim() ||
+      [...e.name].some((character) => {
+        const code = character.codePointAt(0);
+        return code < 32 || code === 127;
+      })
+    )
+      throw new Error(
+        'Enter a nonempty environment name without control characters.',
+      );
+    const name = e.name.trim(),
+      identity = name.toUpperCase();
+    if (names.has(identity))
+      throw new Error('Duplicate environment name: ' + name);
+    names.add(identity);
     if (!/^[a-zA-Z0-9_.-]+$/.test(e.cacheParam || ''))
       throw new Error(
         'Invalid cache parameter name. Use letters, numbers, underscores, dots or hyphens.',
       );
     if (!['soft', 'hard'].includes(e.purgeMode))
       throw new Error('Page purge mode must be soft or hard.');
-    for (const field of ['fullPurgeEnabled', 'confirmPurge'])
+    for (const field of [
+      'fullPurgeEnabled',
+      'confirmPurge',
+      'confirmPagePurge',
+      'confirmFullPurge',
+    ])
       if (e[field] !== undefined && typeof e[field] !== 'boolean')
         throw new Error(field + ' must be a boolean.');
     if (typeof e.publishUrl !== 'string')
@@ -262,7 +292,7 @@ export function validateConfig(input) {
       countries,
       cacheParam: e.cacheParam,
       purgeMode: e.purgeMode,
-      ...purgePolicy(e),
+      ...purgePolicy({ ...e, name }),
     };
   });
   return { version: 2, environments };

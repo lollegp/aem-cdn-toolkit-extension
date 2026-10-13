@@ -21,6 +21,7 @@ class Element {
   }
   replaceChildren() {
     this.children = [];
+    if (this.tag === 'select') this.value = '';
   }
   addEventListener(event, fn) {
     this.listeners[event] = fn;
@@ -43,9 +44,19 @@ class Element {
   }
 }
 let instance = 0;
-async function setup() {
+async function setup({ savedConfig = defaults() } = {}) {
   const ids = [
     'environment',
+    'environmentName',
+    'environmentFields',
+    'emptyEnvironments',
+    'addEnvironment',
+    'removeEnvironment',
+    'environmentDialog',
+    'newEnvironmentName',
+    'createEnvironment',
+    'cancelEnvironment',
+    'environmentStatus',
     'save',
     'export',
     'import',
@@ -56,7 +67,8 @@ async function setup() {
     'cacheParam',
     'purgeMode',
     'fullPurgeEnabled',
-    'confirmPurge',
+    'confirmPagePurge',
+    'confirmFullPurge',
     'edgeKey',
     'purgeKey',
     'countries',
@@ -66,9 +78,6 @@ async function setup() {
     'cancelImport',
     'importDialog',
     'importStatus',
-    'history',
-    'refreshHistory',
-    'clearHistory',
   ];
   const elements = Object.fromEntries(
     ids.map((id) => [id, new Element(id === 'environment' ? 'select' : 'div')]),
@@ -78,12 +87,20 @@ async function setup() {
     createElement: (tag) => new Element(tag),
   };
   const bundled = defaults(),
-    saved = defaults();
-  saved.environments[0].edgeKey = 'existing-edge';
-  saved.environments[0].purgeKey = 'existing-purge';
+    saved = structuredClone(savedConfig);
+  if (saved.environments[0]) {
+    saved.environments[0].edgeKey = 'existing-edge';
+    saved.environments[0].purgeKey = 'existing-purge';
+  }
   const local = { config: saved },
     events = [];
-  const state = { granted: true, response: { ok: true }, cleanupError: null };
+  const state = {
+    granted: true,
+    response: { ok: true },
+    cleanupError: null,
+    confirmRemove: true,
+  };
+  globalThis.confirm = () => state.confirmRemove;
   globalThis.chrome = {
     storage: {
       local: {
@@ -150,7 +167,8 @@ test('Import confirms, clears headers, saves keys and persists when Settings reo
   Object.assign(h.imported.environments[0], {
     cacheParam: 'cache-key',
     fullPurgeEnabled: false,
-    confirmPurge: true,
+    confirmPagePurge: true,
+    confirmFullPurge: false,
   });
   h.imported.environments[4].fullPurgeEnabled = true;
   await h.choose();
@@ -164,7 +182,7 @@ test('Import confirms, clears headers, saves keys and persists when Settings reo
   assert.equal(h.elements.edgeKey.value, 'imported-edge');
   assert.equal(h.elements.cacheParam.value, 'cache-key');
   assert.equal(h.elements.fullPurgeEnabled.checked, false);
-  assert.equal(h.elements.confirmPurge.checked, true);
+  assert.equal(h.elements.confirmPagePurge.checked, true);
   assert.equal(
     (await loadConfig()).environments[0].publishUrl,
     h.imported.environments[0].publishUrl,
@@ -262,21 +280,109 @@ test('Bundled configuration uses cleanup and removes the saved override', async 
 test('Settings saves independent purge availability and confirmation choices for each environment', async () => {
   const h = await setup();
   assert.equal(h.elements.fullPurgeEnabled.checked, true);
-  assert.equal(h.elements.confirmPurge.checked, false);
+  assert.equal(h.elements.confirmPagePurge.checked, false);
   h.elements.fullPurgeEnabled.checked = false;
-  h.elements.confirmPurge.checked = true;
+  h.elements.confirmPagePurge.checked = true;
+  h.elements.confirmFullPurge.checked = false;
   await h.elements.save.click();
   assert.equal(h.local.config.environments[0].fullPurgeEnabled, false);
-  assert.equal(h.local.config.environments[0].confirmPurge, true);
+  assert.equal(h.local.config.environments[0].confirmPagePurge, true);
+  assert.equal(h.local.config.environments[0].confirmFullPurge, false);
   h.elements.environment.value = 'PROD';
   h.elements.environment.listeners.change();
   assert.equal(h.elements.fullPurgeEnabled.checked, false);
-  assert.equal(h.elements.confirmPurge.checked, false);
+  assert.equal(h.elements.confirmPagePurge.checked, false);
   h.elements.fullPurgeEnabled.checked = true;
+  h.elements.confirmFullPurge.checked = true;
   await h.elements.save.click();
   assert.equal(h.local.config.environments[4].fullPurgeEnabled, true);
+  assert.equal(h.local.config.environments[4].confirmFullPurge, true);
   h.elements.environment.value = 'DEV';
   h.elements.environment.listeners.change();
   assert.equal(h.elements.fullPurgeEnabled.checked, false);
-  assert.equal(h.elements.confirmPurge.checked, true);
+  assert.equal(h.elements.confirmPagePurge.checked, true);
+  assert.equal(h.elements.confirmFullPurge.checked, false);
+});
+
+test('Settings adds and renames custom environments with safe new-environment defaults', async () => {
+  const h = await setup();
+  await h.elements.addEnvironment.click();
+  assert.equal(h.elements.environmentDialog.open, true);
+  h.elements.newEnvironmentName.value = 'QA EU';
+  await h.elements.createEnvironment.click();
+  assert.equal(h.local.config.environments.length, 6);
+  assert.equal(h.elements.environment.value, 'QA EU');
+  assert.equal(h.elements.environmentName.value, 'QA EU');
+  const env = h.local.config.environments.at(-1);
+  assert.equal(env.fullPurgeEnabled, false);
+  assert.equal(env.confirmPagePurge, false);
+  assert.equal(env.confirmFullPurge, false);
+  h.elements.environmentName.value = 'QA EU WEST';
+  await h.elements.save.click();
+  assert.equal(h.local.config.environments.at(-1).name, 'QA EU WEST');
+  assert.equal(h.elements.environment.value, 'QA EU WEST');
+  assert.deepEqual(h.events, ['save', 'cleanup', 'save']);
+  assert.equal(h.local.config.environments[0].edgeKey, 'existing-edge');
+});
+test('Adding a duplicate environment reports an error without changing saved configuration', async () => {
+  const h = await setup();
+  await h.elements.addEnvironment.click();
+  h.elements.newEnvironmentName.value = 'dev';
+  await h.elements.createEnvironment.click();
+  assert.match(
+    h.elements.environmentStatus.textContent,
+    /duplicate environment/i,
+  );
+  assert.deepEqual(h.local.config, h.saved);
+  assert.deepEqual(h.events, []);
+});
+test('Removing the last environment persists an empty configuration and still allows adding environments', async () => {
+  const h = await setup({
+    savedConfig: { version: 2, environments: [defaults().environments[0]] },
+  });
+  await h.elements.removeEnvironment.click();
+  assert.deepEqual(h.local.config.environments, []);
+  assert.equal(h.elements.environmentFields.disabled, true);
+  assert.equal(h.elements.save.disabled, true);
+  assert.equal(h.elements.addEnvironment.disabled, false);
+  assert.deepEqual(h.events, ['cleanup', 'save']);
+  await h.elements.addEnvironment.click();
+  h.elements.newEnvironmentName.value = 'LOCAL';
+  await h.elements.createEnvironment.click();
+  assert.equal(h.local.config.environments[0].name, 'LOCAL');
+  assert.equal(h.elements.environmentFields.disabled, false);
+});
+test('Cancelling environment removal preserves mappings and credentials', async () => {
+  const h = await setup();
+  h.state.confirmRemove = false;
+  await h.elements.removeEnvironment.click();
+  assert.deepEqual(h.events, []);
+  assert.deepEqual(h.local.config, h.saved);
+});
+
+test('Clearing keys blocks overlapping environment mutations until credentials are saved empty', async () => {
+  const h = await setup();
+  let release;
+  chrome.runtime.sendMessage = () => {
+    h.events.push('cleanup');
+    return new Promise((resolve) => (release = resolve));
+  };
+  const clearing = h.elements.clearSecrets.click();
+  assert.equal(h.elements.save.disabled, true);
+  assert.equal(h.elements.removeEnvironment.disabled, true);
+  assert.equal(h.elements.addEnvironment.disabled, true);
+  const renaming = h.elements.save.click(),
+    removing = h.elements.removeEnvironment.click();
+  assert.deepEqual(h.events, ['cleanup']);
+  release({ ok: true });
+  await clearing;
+  await renaming;
+  await removing;
+  assert.ok(
+    h.local.config.environments.every(
+      (env) => env.edgeKey === '' && env.purgeKey === '',
+    ),
+  );
+  assert.equal(h.elements.save.disabled, false);
+  assert.equal(h.elements.removeEnvironment.disabled, false);
 });

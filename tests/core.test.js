@@ -170,16 +170,17 @@ test('Purge settings default for existing configurations and retain explicit cho
   const migrated = validateConfig(config);
   for (const e of migrated.environments) {
     assert.equal(e.fullPurgeEnabled, e.name !== 'PROD');
-    assert.equal(e.confirmPurge, false);
+    assert.equal(e.confirmPagePurge, false);
+    assert.equal(e.confirmFullPurge, false);
   }
   config.environments[0].fullPurgeEnabled = false;
-  config.environments[0].confirmPurge = true;
+  config.environments[0].confirmPagePurge = true;
   config.environments[4].fullPurgeEnabled = true;
   const chosen = validateConfig(config);
   assert.equal(chosen.environments[0].fullPurgeEnabled, false);
-  assert.equal(chosen.environments[0].confirmPurge, true);
+  assert.equal(chosen.environments[0].confirmPagePurge, true);
   assert.equal(chosen.environments[4].fullPurgeEnabled, true);
-  assert.equal(chosen.environments[4].confirmPurge, false);
+  assert.equal(chosen.environments[4].confirmFullPurge, false);
   for (const field of ['fullPurgeEnabled', 'confirmPurge']) {
     for (const value of ['false', 1, null]) {
       const bad = defaults();
@@ -305,4 +306,66 @@ test('Permissions are explicit hosts and never a global host grant', () => {
     'https://us.example.invalid/*',
     'https://publish-dev.example.invalid/*',
   ]);
+});
+
+test('Configuration accepts any number of environments and preserves custom names and order', () => {
+  for (const count of [0, 1, 3, 56]) {
+    const config = {
+      version: 2,
+      environments: Array.from({ length: count }, (_, i) => ({
+        ...defaults().environments[0],
+        name: 'Custom environment ' + i,
+      })),
+    };
+    assert.deepEqual(
+      validateConfig(config).environments.map((e) => e.name),
+      config.environments.map((e) => e.name),
+    );
+  }
+});
+test('Environment names are trimmed, unique ignoring case, and reject empty or control-character names', () => {
+  const base = defaults().environments[0];
+  assert.equal(
+    validateConfig({ version: 2, environments: [{ ...base, name: ' QA EU ' }] })
+      .environments[0].name,
+    'QA EU',
+  );
+  for (const name of ['', '   ', 'bad\nname', null])
+    assert.throws(
+      () => validateConfig({ version: 2, environments: [{ ...base, name }] }),
+      /environment name/i,
+    );
+  assert.throws(
+    () =>
+      validateConfig({
+        version: 2,
+        environments: [
+          { ...base, name: 'QA' },
+          { ...base, name: 'qa' },
+        ],
+      }),
+    /duplicate environment/i,
+  );
+});
+test('Legacy confirmation migrates to both purge scopes and explicit scope settings take precedence', () => {
+  const config = defaults();
+  const env = config.environments[0];
+  delete env.confirmPagePurge;
+  delete env.confirmFullPurge;
+  env.confirmPurge = true;
+  let normalized = validateConfig(config).environments[0];
+  assert.equal(normalized.confirmPagePurge, true);
+  assert.equal(normalized.confirmFullPurge, true);
+  assert.equal(normalized.confirmPurge, undefined);
+  env.confirmPagePurge = false;
+  normalized = validateConfig(config).environments[0];
+  assert.equal(normalized.confirmPagePurge, false);
+  assert.equal(normalized.confirmFullPurge, true);
+  env.confirmFullPurge = false;
+  assert.equal(validateConfig(config).environments[0].confirmFullPurge, false);
+  for (const field of ['confirmPagePurge', 'confirmFullPurge']) {
+    const invalid = defaults();
+    invalid.environments[0][field] = 'false';
+    assert.throws(() => validateConfig(invalid), /must be a boolean/);
+  }
 });

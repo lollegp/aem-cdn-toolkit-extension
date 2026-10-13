@@ -1,4 +1,4 @@
-# AEM CDN Toolkit 2.3
+# AEM CDN Toolkit 2.4
 
 Chrome Manifest V3 extension for Adobe AEM as a Cloud Service CDN purge, public country mappings, authenticated publish access and random cache parameters. All interface text, messages, documentation and tests are in English. No build step or runtime dependencies are required.
 
@@ -15,20 +15,25 @@ Existing version 1 configurations are migrated when each environment has one pub
 
 ## Environment and country settings
 
-The extension supports DEV, DEV2, TEST, STAGE and PROD. Every environment has exactly one publish origin. All countries in that environment share its edge key and purge key.
+The environment list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are starter examples. Each environment has one publish origin and its countries share the environment edge key and purge key.
 
-| Setting                       | Scope       | Purpose                                                                                                            |
-| :---------------------------- | :---------- | :----------------------------------------------------------------------------------------------------------------- |
-| Publish URL                   | Environment | AEM service origin, for example `https://publish-p123456-e123456.adobeaemcloud.com/`                               |
-| X-AEM-Edge-Key                | Environment | Used for publish navigation and purge requests                                                                     |
-| X-AEM-Purge-Key               | Environment | Used only for purge requests                                                                                       |
-| Page purge mode               | Environment | Soft or hard, with soft as the default                                                                             |
-| Enable full environment purge | Environment | Controls the full purge action; enabled by default except for PROD                                                 |
-| Require purge confirmation    | Environment | Confirms page and full purges when enabled; disabled by default                                                    |
-| Random cache parameter        | Environment | Query parameter name using letters, numbers, underscores, dots or hyphens, for example `_cacheBust` or `cache-key` |
-| Country code                  | Country     | Unique label such as GB, IE or US                                                                                  |
-| Public URL                    | Country     | Public site origin, optionally with a path prefix                                                                  |
-| Publish path prefix           | Country     | Optional replacement for the public URL prefix; normally `/`                                                       |
+In Settings, use **Add environment** to create an environment with a unique name. Configure its publish URL, country mappings, keys and purge settings, then save. Edit **Environment name** and save to rename it. Names are trimmed and must be unique regardless of case. **Remove environment** removes its saved mappings and keys after confirmation. Renaming or removing an environment clears active publish headers; reopen publish windows afterward. Activity records retain their original environment labels. You can remove every environment and add new ones later.
+
+New custom environments start with full purge disabled and both confirmations off. JSON imports may contain any number of environments, including an empty list. The existing one-megabyte import size limit still applies.
+
+| Setting                        | Scope       | Purpose                                                                                                            |
+| :----------------------------- | :---------- | :----------------------------------------------------------------------------------------------------------------- |
+| Publish URL                    | Environment | AEM service origin, for example `https://publish-p123456-e123456.adobeaemcloud.com/`                               |
+| X-AEM-Edge-Key                 | Environment | Used for publish navigation and purge requests                                                                     |
+| X-AEM-Purge-Key                | Environment | Used only for purge requests                                                                                       |
+| Page purge mode                | Environment | Soft or hard, with soft as the default                                                                             |
+| Enable full environment purge  | Environment | Controls the full purge action; disabled for newly created custom environments                                     |
+| Confirm page purge             | Environment | Requires confirmation for current-page purge only; disabled by default                                             |
+| Confirm full environment purge | Environment | Requires confirmation and an exact typed environment name for full purge only; disabled by default                 |
+| Random cache parameter         | Environment | Query parameter name using letters, numbers, underscores, dots or hyphens, for example `_cacheBust` or `cache-key` |
+| Country code                   | Country     | Unique label such as GB, IE or US                                                                                  |
+| Public URL                     | Country     | Public site origin, optionally with a path prefix                                                                  |
+| Publish path prefix            | Country     | Optional replacement for the public URL prefix; normally `/`                                                       |
 
 Different environments must use different publish origins. This keeps purge targets and per-environment settings unambiguous.
 
@@ -61,7 +66,8 @@ Example environment configuration, with both public sites mapped to one publish 
   "cacheParam": "_cacheBust",
   "purgeMode": "soft",
   "fullPurgeEnabled": true,
-  "confirmPurge": false
+  "confirmPagePurge": false,
+  "confirmFullPurge": false
 }
 ```
 
@@ -104,7 +110,7 @@ Closing the tab removes its headers and country context. Changing settings does 
 
 ## Purge current page
 
-Select **Purge current page** to send the request immediately. Confirmation is disabled by default. If **Require purge confirmation** is enabled for the selected environment, review the environment, country, target URL and mode, check the confirmation box and select **Send PURGE request**.
+Select **Purge current page** to send the request immediately. Confirmation is disabled by default. If **Confirm page purge** is enabled for the selected environment, review the environment, country, target URL and mode, check the confirmation box and select **Send PURGE request**.
 
 The extension sends a direct request to the AEM publish service:
 
@@ -122,7 +128,7 @@ The edge key and purge key must already be configured in your AEM CDN authentica
 
 ## Purge entire environment
 
-**Purge entire environment** is available only when **Enable full environment purge** is selected in that environment's Settings. It is enabled by default for DEV, DEV2, TEST and STAGE and disabled by default for PROD. It uses one request to the publish origin root:
+**Purge entire environment** is available only when **Enable full environment purge** is selected in that environment's Settings. The starter configurations enable it for DEV, DEV2, TEST and STAGE and disable it for PROD. Newly created custom environments start with it disabled. It uses one request to the publish origin root:
 
 ```http
 PURGE https://publish-p123456-e123456.adobeaemcloud.com/
@@ -134,15 +140,17 @@ X-AEM-Purge: all
 
 This is Adobe's full service purge, covering all cached resources in the selected AEM environment, including its countries. It is not a loop over known pages or country domains. The forwarded host comes from the current public country context, while the full purge scope belongs to the AEM service.
 
-With confirmation disabled, selecting the full purge action sends the request immediately. With **Require purge confirmation** enabled, the popup requires both a checked confirmation box and the exact text `PURGE` followed by the environment name, such as `PURGE DEV` or `PURGE PROD`.
+With confirmation disabled, selecting the full purge action sends the request immediately. With **Confirm full environment purge** enabled, the popup requires both a checked confirmation box and the exact text `PURGE` followed by the environment name, such as `PURGE DEV` or `PURGE PROD`.
 
 PROD full purge can be enabled explicitly in PROD Settings. A disabled full purge action is hidden in the popup, and the background handler rejects the request using the saved environment policy before any network call. Current page purge remains available regardless of the full purge setting.
 
-Both settings are independent for each environment and persist through saving, importing, exporting and restart. JSON uses the boolean fields `fullPurgeEnabled` and `confirmPurge`. Existing configurations without these fields inherit full purge enabled for non-PROD environments, disabled for PROD, and confirmation disabled everywhere. The background reads the saved policy for every action, so a stale popup cannot bypass newly enabled confirmation or a disabled full purge.
+Availability and both confirmation settings are independent for each environment and persist through saving, importing, exporting and restart. JSON uses the boolean fields `fullPurgeEnabled`, `confirmPagePurge` and `confirmFullPurge`. The legacy `confirmPurge` field migrates to both confirmation settings; explicit scope-specific values take precedence. Missing confirmation settings default to false. Legacy starter environments retain their full-purge defaults; custom names without a full-purge setting default to disabled. The background reads the saved policy for every action, so a stale popup cannot bypass newly enabled confirmation or a disabled full purge.
 
 ## Purge activity and console
 
-Open **Settings and purge activity** to see the latest 100 requests. The list updates when new results arrive and retains:
+The popup has separate **Settings** and **Purge activity** buttons. They open the corresponding tab within the same options page (`options.html#settings` or `options.html#activity`). The tabs support arrow-key navigation and direct links. The Settings tab contains configuration controls; the Purge activity tab has its own **Refresh activity** and **Clear activity** actions. Activity remains accessible if the configuration fails to load.
+
+Open **Purge activity** to see the latest 100 requests. The list updates when new results arrive and retains:
 
 1. Start and finish timestamps.
 2. Environment and country.
@@ -192,7 +200,7 @@ npm run check
 
 `npm run check` runs ESLint, verifies formatting with Prettier, and runs the complete test suite. Use `npm run lint:fix` and `npm run format` to apply lint fixes and formatting, or `npm test` to run tests alone. Development tool versions and their dependency tree are pinned in `package-lock.json`.
 
-The package includes 69 tests covering per-environment purge settings, optional confirmation, explicit PROD full purge, duplicate-click prevention, import confirmation and failures, hyphenated cache parameters, trusted Settings-tab messages, packaged PNG icons, domain recognition, toolbar updates, synchronous worker listener registration, popup eligibility, country mapping, shared publish contexts, forwarded hosts, header scoping, direct AEM purge construction, response status tracking, secret exclusion, and migration. Options and popup tests use a simulated DOM; background and activation tests mock browser APIs and network calls.
+The package includes 86 tests covering configurable environment lists, environment creation/rename/removal, separate confirmation policies and legacy migration, direct section links, activity rendering, credential-clearing race protection, optional confirmation, explicit PROD full purge, duplicate-click prevention, import failures, hyphenated cache parameters, trusted Settings-tab messages, packaged PNG icons, toolbar updates, synchronous worker listeners, country mapping, shared publish contexts, header scoping, purge construction, response tracking, secret exclusion, and migration. Options and popup tests use a simulated DOM; background and activation tests mock browser APIs and network calls.
 
 The automated suite uses synthetic credentials and sends no real AEM purge requests. Native browser rendering is a separate verification step. After configuration, validate page purge and publish access in DEV before using other environments.
 

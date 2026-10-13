@@ -33,6 +33,8 @@ async function setup({
   sharedDomain = false,
   missingContextResponse = false,
   confirmPurge = false,
+  confirmPagePurge = confirmPurge,
+  confirmFullPurge = confirmPurge,
   fullPurgeEnabled = true,
   prodFullPurgeEnabled = false,
 } = {}) {
@@ -57,6 +59,7 @@ async function setup({
     'sendPurge',
     'cancelPurge',
     'options',
+    'activity',
   ];
   const buttons = [
     'bypass',
@@ -66,6 +69,7 @@ async function setup({
     'sendPurge',
     'cancelPurge',
     'options',
+    'activity',
   ];
   const elements = Object.fromEntries(
     ids.map((id) => [
@@ -105,7 +109,8 @@ async function setup({
       },
     ],
   };
-  config.environments[0].confirmPurge = confirmPurge;
+  config.environments[0].confirmPagePurge = confirmPagePurge;
+  config.environments[0].confirmFullPurge = confirmFullPurge;
   config.environments[0].fullPurgeEnabled = fullPurgeEnabled;
   // Keep the existing country-detection case actionable.
   if (url === 'https://us.example.invalid/ports')
@@ -140,6 +145,7 @@ async function setup({
       tab: { id: 1, url },
       response: { ok: false, text: 'Simulated request failure' },
       optionsOpened: false,
+      openedURLs: [],
     };
   globalThis.chrome = {
     storage: {
@@ -151,9 +157,17 @@ async function setup({
       },
       onChanged: { addListener: () => {} },
     },
-    tabs: { query: async () => [state.tab], get: async () => state.tab },
+    tabs: {
+      query: async () => [state.tab],
+      get: async () => state.tab,
+      create: async ({ url }) => {
+        state.openedURLs.push(url);
+        if (url.endsWith('#settings')) state.optionsOpened = true;
+      },
+    },
     permissions: { request: async () => true },
     runtime: {
+      getURL: (path) => 'chrome-extension://test/' + path,
       sendMessage: async (message) => {
         calls.push(message);
         return message.action === 'context'
@@ -179,6 +193,36 @@ test('Popup detects the public country and shows its forwarded hostname', async 
     'X-Forwarded-Host: us.example.invalid',
   );
   assert.equal(elements.purgeAll.disabled, false);
+});
+test('Page and full confirmation can be configured independently in the popup', async () => {
+  for (const flags of [
+    { confirmPagePurge: true, confirmFullPurge: false },
+    { confirmPagePurge: false, confirmFullPurge: true },
+  ]) {
+    const { elements, calls } = await setup(flags);
+    elements.confirm.hidden = true;
+    for (const [id, required] of [
+      ['purge', flags.confirmPagePurge],
+      ['purgeAll', flags.confirmFullPurge],
+    ]) {
+      const before = calls.length;
+      await elements[id].listeners.click();
+      assert.equal(elements.confirm.hidden, !required);
+      assert.equal(calls.length, before + (required ? 0 : 1));
+      if (required) elements.cancelPurge.listeners.click();
+    }
+  }
+});
+test('Settings and activity CTAs open their own section even when configuration is invalid', async () => {
+  const { elements, state } = await setup({ invalidConfig: true });
+  await elements.options.listeners.click();
+  await elements.activity.listeners.click();
+  assert.deepEqual(state.openedURLs, [
+    'chrome-extension://test/options.html#settings',
+    'chrome-extension://test/options.html#activity',
+  ]);
+  assert.equal(elements.options.disabled, false);
+  assert.equal(elements.activity.disabled, false);
 });
 test('PROD bulk button stays disabled when the environment changes and after another action', async () => {
   const { elements } = await setup();

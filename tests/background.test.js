@@ -169,7 +169,8 @@ test('Page purge uses PURGE publish URL and all required environment headers wit
   assert.ok(!JSON.stringify(logs).includes('purge-key-value'));
 });
 test('Full environment purge is one all request against the root with typed confirmation', async () => {
-  config.environments[0].confirmPurge = true;
+  config.environments[0].confirmPagePurge = true;
+  config.environments[0].confirmFullPurge = true;
   const before = fetchCount;
   const r = await send('purgeAll');
   assert.equal(r.ok, true);
@@ -180,7 +181,8 @@ test('Full environment purge is one all request against the root with typed conf
   const bad = await send('purgeAll', { confirmation: 'PURGE PROD' });
   assert.equal(bad.ok, false);
   assert.equal(fetchCount, before + 1);
-  config.environments[0].confirmPurge = false;
+  config.environments[0].confirmPagePurge = false;
+  config.environments[0].confirmFullPurge = false;
 });
 test('PROD full purge is disabled by default even when directly invoked or forged', async () => {
   const before = fetchCount;
@@ -208,7 +210,8 @@ test('Page and full purge accept direct clicks when confirmation is disabled', a
   assert.equal(fetchCount, before + 2);
 });
 test('Background rejects page and full requests without configured confirmation', async () => {
-  config.environments[0].confirmPurge = true;
+  config.environments[0].confirmPagePurge = true;
+  config.environments[0].confirmFullPurge = true;
   const before = fetchCount;
   try {
     for (const action of ['purge', 'purgeAll'])
@@ -224,7 +227,75 @@ test('Background rejects page and full requests without configured confirmation'
       true,
     );
   } finally {
-    config.environments[0].confirmPurge = false;
+    config.environments[0].confirmPagePurge = false;
+    config.environments[0].confirmFullPurge = false;
+  }
+});
+test('Background enforces page and full confirmation independently', async () => {
+  const env = config.environments[0],
+    before = fetchCount;
+  try {
+    env.confirmPagePurge = true;
+    env.confirmFullPurge = false;
+    assert.equal((await send('purge', { confirmation: undefined })).ok, false);
+    assert.equal(fetchCount, before);
+    assert.equal(
+      (await send('purgeAll', { confirmation: undefined })).ok,
+      true,
+    );
+    env.confirmPagePurge = false;
+    env.confirmFullPurge = true;
+    assert.equal((await send('purge', { confirmation: undefined })).ok, true);
+    const afterPage = fetchCount;
+    assert.equal(
+      (
+        await send('purgeAll', {
+          confirmation: undefined,
+          confirmFullPurge: false,
+        })
+      ).ok,
+      false,
+    );
+    assert.equal(fetchCount, afterPage);
+    assert.equal(
+      (await send('purgeAll', { confirmation: 'PURGE DEV' })).ok,
+      true,
+    );
+  } finally {
+    env.confirmPagePurge = false;
+    env.confirmFullPurge = false;
+  }
+});
+test('Custom environments beyond the starter list can purge using their own keys', async () => {
+  const previous = currentURL;
+  const env = {
+    ...config.environments[0],
+    name: 'QA EU',
+    publishUrl: 'https://publish-qa.example.invalid/',
+    edgeKey: 'qa-edge',
+    purgeKey: 'qa-purge',
+    countries: [
+      {
+        code: 'US',
+        publicBaseUrl: 'https://qa.example.invalid/',
+        publishPathPrefix: '/',
+      },
+    ],
+    confirmPagePurge: false,
+  };
+  config.environments.push(env);
+  currentURL = 'https://qa.example.invalid/page';
+  try {
+    const r = await send('purge', {
+      environment: 'QA EU',
+      confirmation: undefined,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(captured.url, 'https://publish-qa.example.invalid/page');
+    assert.equal(captured.init.headers['X-AEM-Purge-Key'], 'qa-purge');
+  } finally {
+    currentURL = previous;
+    config.environments.pop();
   }
 });
 test('Disabled full purge is rejected from saved policy even with forged enable flags', async () => {
@@ -355,6 +426,23 @@ test('Settings opened in a browser tab can clear active headers before import', 
   assert.equal(rules.size, 0);
   assert.equal(session.publishTabs, undefined);
   assert.equal(session.secrets, undefined);
+});
+test('Settings tab routes remain trusted when opened directly on the activity section', async () => {
+  let respond;
+  const response = new Promise((resolve) => (respond = resolve));
+  assert.equal(
+    listener(
+      { action: 'context', tabId: 12 },
+      {
+        id: 'test',
+        url: 'chrome-extension://test/options.html#activity',
+        tab: { id: 12 },
+      },
+      respond,
+    ),
+    true,
+  );
+  assert.equal((await response).ok, true);
 });
 test('Only exact Settings and popup URLs from this extension are trusted', () => {
   for (const sender of [

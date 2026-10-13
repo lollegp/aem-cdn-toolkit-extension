@@ -275,3 +275,35 @@ dialog pre {
 button:disabled {
   cursor: not-allowed;
 }
+
+.environment-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.section-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dce4ed;
+}
+.section-tabs button[aria-selected='false'] {
+  background: #e5edf5;
+  color: #173c61;
+}
+.toolbar + .toolbar {
+  margin-top: 12px;
+}
+#environmentStatus,
+#activityStatus {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  margin-top: 16px;
+}
+#environmentStatus[data-error='true'],
+#activityStatus[data-error='true'] {
+  color: #a52b29;
+}

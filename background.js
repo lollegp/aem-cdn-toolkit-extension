@@ -3,6 +3,7 @@ import {
   resolvePage,
   bypassURL,
   purgePolicy,
+  requiresPurgeConfirmation,
   purgeRequest,
   requestHeaders,
   publishRule,
@@ -136,7 +137,7 @@ async function execute(message) {
   if (['purge', 'purgeAll'].includes(message.action)) {
     const scope = message.action === 'purgeAll' ? 'all' : 'page';
     if (
-      policy.confirmPurge &&
+      requiresPurgeConfirmation(env, scope) &&
       message.confirmation !== (scope === 'all' ? 'PURGE ' + env.name : 'page')
     )
       throw new Error(
@@ -232,10 +233,18 @@ async function execute(message) {
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   // Extension pages may be opened in tabs. Trust their exact URL, not the absence of sender.tab.
+  let senderURL;
+  try {
+    const url = new URL(sender.url);
+    url.hash = '';
+    senderURL = url.href;
+  } catch {
+    return false;
+  }
   if (
     sender.id !== chrome.runtime.id ||
     !['options.html', 'popup.html'].some(
-      (path) => sender.url === chrome.runtime.getURL(path),
+      (path) => senderURL === chrome.runtime.getURL(path),
     )
   )
     return false;

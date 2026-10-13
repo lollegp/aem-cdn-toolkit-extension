@@ -26,7 +26,8 @@
       "edgeKey": "",
       "purgeKey": "",
       "fullPurgeEnabled": true,
-      "confirmPurge": false
+      "confirmPagePurge": false,
+      "confirmFullPurge": false
     },
     {
       "name": "DEV2",
@@ -53,7 +54,8 @@
       "edgeKey": "",
       "purgeKey": "",
       "fullPurgeEnabled": true,
-      "confirmPurge": false
+      "confirmPagePurge": false,
+      "confirmFullPurge": false
     },
     {
       "name": "TEST",
@@ -80,7 +82,8 @@
       "edgeKey": "",
       "purgeKey": "",
       "fullPurgeEnabled": true,
-      "confirmPurge": false
+      "confirmPagePurge": false,
+      "confirmFullPurge": false
     },
     {
       "name": "STAGE",
@@ -107,7 +110,8 @@
       "edgeKey": "",
       "purgeKey": "",
       "fullPurgeEnabled": true,
-      "confirmPurge": false
+      "confirmPagePurge": false,
+      "confirmFullPurge": false
     },
     {
       "name": "PROD",
@@ -134,7 +138,8 @@
       "edgeKey": "",
       "purgeKey": "",
       "fullPurgeEnabled": false,
-      "confirmPurge": false
+      "confirmPagePurge": false,
+      "confirmFullPurge": false
     }
   ]
 }
