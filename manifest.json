@@ -28,7 +28,7 @@
     "16": "icons/toolkit-neutral-16.png",
     "32": "icons/toolkit-neutral-32.png",
     "48": "icons/toolkit-neutral-48.png",
-    "128": "icons/toolkit-store-128.png"
+    "128": "icons/toolkit-neutral-128.png"
   },
   "options_page": "options.html",
   "content_security_policy": {

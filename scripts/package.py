@@ -22,8 +22,14 @@ files = [
     'manifest.json', 'config.json', 'activation.js', 'activity.js', 'background.js',
     'core.js', 'storage.js', 'sections.js', 'options.js', 'options.html',
     'popup.js', 'popup.html', 'styles.css', 'help.html', 'privacy.html', 'site.css',
-    'icons/chevron-down.svg', 'icons/toolkit-store-128.png',
 ]
+presentation_assets = [
+    'docs/imgs/AEM CDN Toolkit Showcase.png',
+    'docs/imgs/popup_1280x800.png',
+    'docs/imgs/environment_settings_1280x800.png',
+    'docs/imgs/purge_activity_1280x800.png',
+]
+files += presentation_assets
 files += [f'icons/toolkit-{state}-{size}.png' for state in ['neutral', 'green'] for size in [16, 32, 48, 128]]
 for name in files:
     path = ROOT / name
@@ -56,6 +62,10 @@ site.mkdir(exist_ok=True)
 (site / 'privacy.html').write_text((ROOT / 'privacy.html').read_text().replace('href="help.html"', 'href="index.html"'))
 shutil.copy2(ROOT / 'site.css', site / 'site.css')
 shutil.copy2(ROOT / 'icons/toolkit-neutral-48.png', site / 'icons/toolkit-neutral-48.png')
+for name in presentation_assets:
+    destination = site / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / name, destination)
 (site / '.nojekyll').touch()
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 (archive.with_suffix('.zip.sha256')).write_text(f'{digest}  {archive.name}\n')

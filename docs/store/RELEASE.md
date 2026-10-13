@@ -5,8 +5,9 @@
 - Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.5.0.zip`.
 - Empty configuration on first install. No keys, organization domains or sample environments in the runtime package.
 - Local help and privacy pages, plus a GitHub Pages build and manual deployment workflow.
-- 128×128 store icon: `icons/toolkit-store-128.png`.
-- 440×280 promotional tile: `docs/store/promo-440x280.png`.
+- 128×128 store icon: `icons/toolkit-neutral-128.png`.
+- 440×280 promotional tile: `docs/imgs/promo_tile_440x280.png`.
+- Additional promotional artwork and illustrative interface previews: `docs/imgs/`. These do not replace the actual Chrome screenshots required below.
 - Development files, tests, sample configuration and original icon master files excluded from the ZIP.
 - No remote executable code, content scripts, analytics, tracking or developer backend.
 - Host access optional and requested for configured hosts; incognito disabled.
