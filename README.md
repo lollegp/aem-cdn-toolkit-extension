@@ -107,7 +107,7 @@ Automated tests use simulated browser APIs and synthetic credentials. They send 
 | [Presentation assets](docs/imgs)                                      | [Marquee](docs/imgs/marquee_1400x560.png), [promotional tile](docs/imgs/promo_tile_440x280.png) and interface previews |
 | [Issues](https://github.com/lollegp/aem-cdn-toolkit-extension/issues) | Bug reports and feature requests; never include keys or private URLs                                                   |
 
-The Pages workflow is manually triggered. Building locally does not deploy the website or publish the extension. See the release checklist before distribution.
+The [Pages workflow](.github/workflows/pages.yml) automatically syncs changes to help, privacy, shared styles and presentation assets on `main` into `lollegp/lollegp.github.io`, under `aem-cdn-toolkit-extension/`. Manual runs are also supported. One-time credential and Pages setup is described in the [deployment guide](docs/USAGE.md#automatic-website-publishing). Building locally does not deploy or publish the extension.
 
 ---
 

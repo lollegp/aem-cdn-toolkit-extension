@@ -219,7 +219,24 @@ The PNG icons are packaged with the extension and require no build step. When up
 
 Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.5.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
 
-The bundled [help page](../help.html) and [privacy policy](../privacy.html) also form the public site. The Pages workflow runs only when manually dispatched. After committing these files explicitly, enable GitHub Pages with GitHub Actions as source and run **Publish help and privacy site**. Expected site: https://lollegp.github.io/aem-cdn-toolkit-extension/.
+The bundled [help page](../help.html) and [privacy policy](../privacy.html) also form the public site at https://lollegp.github.io/aem-cdn-toolkit-extension/.
+
+### Automatic website publishing
+
+[Publish help and privacy site](../.github/workflows/pages.yml) runs on pushes to `main` that change `help.html`, `privacy.html`, `site.css`, the site icon, `docs/imgs/**`, the package builder or the workflow itself. It also supports **Run workflow** on `main` for the first deployment or retries.
+
+One-time setup:
+
+1. Create a fine-grained personal access token owned by `lollegp`, restricted to **lollegp/lollegp.github.io**, with repository **Contents: Read and write** permission. Set an expiration and renew the secret before it expires.
+2. In the **aem-cdn-toolkit-extension** repository, open **Settings → Secrets and variables → Actions** and add the token as **PAGES_DEPLOY_TOKEN**. Never put the token in the repository or a workflow input.
+3. In **lollegp.github.io → Settings → Pages**, use **Deploy from a branch**, branch **main**, folder **/ (root)**. The token owner must have permission to push to `main`; any branch rules must permit these updates.
+4. After the workflow has been committed and pushed to this repository, run **Publish help and privacy site** once or push a matching page change. Check the sync run here and the Pages build in `lollegp.github.io`.
+
+The workflow builds the site and synchronizes only `aem-cdn-toolkit-extension/` in the destination repository, including styles, images and the icon. It maintains both `index.html` and `help.html`, removes obsolete files inside that managed folder, and leaves sibling projects unchanged. It skips empty commits and never force-pushes. If another destination change causes a push rejection, rerun the workflow to check out the latest destination first. Runs always build the latest source `main`, including when retrying an older run.
+
+The default `GITHUB_TOKEN` cannot write to the other repository; pushes made with that token also do not trigger branch-based Pages builds. See [checkout authentication](https://github.com/actions/checkout#checkout-multiple-repos-private) and [GitHub Pages publishing sources](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site). The workflow uses the separate token for the destination checkout and push.
+
+This replaces deployment from the extension repository's own Pages environment. Website sync does not submit or publish the Chrome extension.
 
 See [store listing and release checklist](store/RELEASE.md). Creating the ZIP does not publish the site or submit the extension. Live Chrome behavior and screenshots still require the documented manual checks.
 
