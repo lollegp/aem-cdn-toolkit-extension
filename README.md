@@ -1,0 +1,206 @@
+# AEM CDN Toolkit 2.3
+
+Chrome Manifest V3 extension for Adobe AEM as a Cloud Service CDN purge, public country mappings, authenticated publish access and random cache parameters. All interface text, messages, documentation and tests are in English. No build step or runtime dependencies are required.
+
+## Installation and update
+
+1. Clone this repository or extract its ZIP archive.
+2. Open `chrome://extensions` and enable **Developer mode**.
+3. Select **Load unpacked** and choose the `aem-cdn-toolkit` folder containing `manifest.json`.
+4. If updating an existing installation, replace its source files (including the `icons` folder), press **Reload** on the extension card, then close and reopen Settings and any popup already open.
+5. Open the extension options from its Details page, then save environments or select **Use bundled config.json** to grant access to configured domains.
+6. Pin the extension. Its icon displays a green dot on configured public and publish domains. The popup remains accessible on every tab so you can always open Settings.
+
+Existing version 1 configurations are migrated when each environment has one publish origin. Country labels are initially generated as SITE1, SITE2 and so on. Rename them to your country codes. Generic CDN API settings are replaced by the direct AEM CDN integration. Keys can now be configured directly at environment level in JSON and remain available after restart.
+
+## Environment and country settings
+
+The extension supports DEV, DEV2, TEST, STAGE and PROD. Every environment has exactly one publish origin. All countries in that environment share its edge key and purge key.
+
+| Setting                       | Scope       | Purpose                                                                                                            |
+| :---------------------------- | :---------- | :----------------------------------------------------------------------------------------------------------------- |
+| Publish URL                   | Environment | AEM service origin, for example `https://publish-p123456-e123456.adobeaemcloud.com/`                               |
+| X-AEM-Edge-Key                | Environment | Used for publish navigation and purge requests                                                                     |
+| X-AEM-Purge-Key               | Environment | Used only for purge requests                                                                                       |
+| Page purge mode               | Environment | Soft or hard, with soft as the default                                                                             |
+| Enable full environment purge | Environment | Controls the full purge action; enabled by default except for PROD                                                 |
+| Require purge confirmation    | Environment | Confirms page and full purges when enabled; disabled by default                                                    |
+| Random cache parameter        | Environment | Query parameter name using letters, numbers, underscores, dots or hyphens, for example `_cacheBust` or `cache-key` |
+| Country code                  | Country     | Unique label such as GB, IE or US                                                                                  |
+| Public URL                    | Country     | Public site origin, optionally with a path prefix                                                                  |
+| Publish path prefix           | Country     | Optional replacement for the public URL prefix; normally `/`                                                       |
+
+Different environments must use different publish origins. This keeps purge targets and per-environment settings unambiguous.
+
+Edit the bundled `config.json` directly, or import `config.example.json`, for a template with three countries per environment, then replace the fictional `.example.invalid` URLs. Save each environment before switching. Unsaved changes are discarded when you switch environments. Saving requests optional domain access for the configured public hosts and publish host.
+
+To import, select **Import JSON**, choose a file, then select **Import** in the confirmation dialog and grant access to its configured domains. The extension clears active publish headers before saving the replacement configuration. Errors appear inside the dialog so you can retry. Invalid files, denied domain access, and failed header cleanup leave the saved configuration unchanged. Cancel or Escape discards the pending import; cancellation is blocked while an import is running.
+
+Version 2.2 fixes the **Unable to clear session keys.** import error caused by the background handler rejecting Settings messages when Settings was opened in a browser tab. If an old Settings page still shows that error after an update, reload the extension in `chrome://extensions`, close Settings, and reopen it before importing again. A missing background response now displays explicit reload instructions.
+
+Example environment configuration, with both public sites mapped to one publish origin:
+
+```json
+{
+  "name": "DEV",
+  "publishUrl": "https://publish-dev.example.invalid/",
+  "edgeKey": "YOUR_DEV_EDGE_KEY",
+  "purgeKey": "YOUR_DEV_PURGE_KEY",
+  "countries": [
+    {
+      "code": "GB",
+      "publicBaseUrl": "https://dev-gb.example.invalid/",
+      "publishPathPrefix": "/"
+    },
+    {
+      "code": "US",
+      "publicBaseUrl": "https://dev-us.example.invalid/",
+      "publishPathPrefix": "/"
+    }
+  ],
+  "cacheParam": "_cacheBust",
+  "purgeMode": "soft",
+  "fullPurgeEnabled": true,
+  "confirmPurge": false
+}
+```
+
+Public URL path prefixes are matched at path boundaries. The most specific prefix wins. A prefix can map a public path such as `/it/ports` to `/content/b2c/it/it/ports` when the public base ends in `/it` and the publish prefix is `/content/b2c/it/it`.
+
+The extension preserves the path, query and fragment when opening publish. It does not append `.html` automatically. Configure prefixes only when the actual publish routing requires them.
+
+## Toolbar status and page actions
+
+The toolbar displays a green dot when the current tab uses an exact configured HTTPS public or publish origin, including its port. Domain recognition covers all paths on that origin. The tooltip lists the matching environments. A neutral dot indicates an unmatched or unsupported URL, unavailable domain access, or invalid configuration. A green dot confirms a configured domain; it does not validate credentials or CDN connectivity.
+
+Grant access to configured hosts by saving, importing, or selecting **Use bundled config.json** in Settings first. The extension uses those host grants to read matching tab URLs and requests no global browsing permission. Navigation, tab switching, configuration changes, domain permission changes, and worker startup refresh the toolbar state.
+
+Click the icon on any tab to open the popup and access Settings. Page actions are disabled until the current URL resolves to a valid country mapping. Public path prefixes still match at path boundaries, so a page outside its configured prefix can have a green dot while its actions remain disabled. A unique environment and public country are selected automatically. Multiple matching environments require an explicit environment selection; a manually opened publish URL requires an explicit country selection.
+
+## Automatic forwarded host
+
+`X-Forwarded-Host` is generated from the public site's **host**, for example `www.example.invalid`. It contains no `https://`, path, query or fragment. A nondefault port is included when present.
+
+When opening publish, the extension remembers the environment, country and public host for that tab in session storage. Subsequent actions in that shared publish tab use the remembered country. Switching its country is blocked to prevent mixing the original navigation headers with another public host.
+
+If you open a publish URL manually, select its country explicitly because the shared publish origin alone cannot identify the public country site. A manually opened tab does not receive navigation headers automatically; use **Open AEM publish** to create a tab with headers installed.
+
+If a public page has no mapping, or its selected country does not match the actual URL, the action is rejected. Reopen the popup when the current page changes.
+
+## Open AEM publish
+
+Select **Open AEM publish**. The extension creates a new normal window, installs scoped request header rules, saves the country context and then navigates to publish.
+
+Publish requests contain:
+
+```http
+X-AEM-Edge-Key: <environment edge key>
+X-Forwarded-Host: <public site host>
+```
+
+The purge key is never attached to navigation requests. Header rules apply only to the new tab and the exact publish origin. They also cover scripts, styles, images and API requests in that tab when served by the same publish origin. External origins, other ports and other tabs do not inherit the rules.
+
+Closing the tab removes its headers and country context. Changing settings does not update existing rules; close and reopen existing publish windows to apply new keys or mappings.
+
+## Purge current page
+
+Select **Purge current page** to send the request immediately. Confirmation is disabled by default. If **Require purge confirmation** is enabled for the selected environment, review the environment, country, target URL and mode, check the confirmation box and select **Send PURGE request**.
+
+The extension sends a direct request to the AEM publish service:
+
+```http
+PURGE https://publish-p123456-e123456.adobeaemcloud.com/resource-path
+X-AEM-Purge-Key: <environment purge key>
+X-AEM-Edge-Key: <environment edge key>
+X-Forwarded-Host: <public site host>
+X-AEM-Purge: soft
+```
+
+There is no request body. The random cache parameter and fragment are removed; all other query parameters are retained. Hard page purge can be selected in environment settings. No page configuration can set the mode to `all`.
+
+The edge key and purge key must already be configured in your AEM CDN authentication rules. This extension consumes those credentials; it does not create or deploy CDN rules.
+
+## Purge entire environment
+
+**Purge entire environment** is available only when **Enable full environment purge** is selected in that environment's Settings. It is enabled by default for DEV, DEV2, TEST and STAGE and disabled by default for PROD. It uses one request to the publish origin root:
+
+```http
+PURGE https://publish-p123456-e123456.adobeaemcloud.com/
+X-AEM-Purge-Key: <environment purge key>
+X-AEM-Edge-Key: <environment edge key>
+X-Forwarded-Host: <current public site host>
+X-AEM-Purge: all
+```
+
+This is Adobe's full service purge, covering all cached resources in the selected AEM environment, including its countries. It is not a loop over known pages or country domains. The forwarded host comes from the current public country context, while the full purge scope belongs to the AEM service.
+
+With confirmation disabled, selecting the full purge action sends the request immediately. With **Require purge confirmation** enabled, the popup requires both a checked confirmation box and the exact text `PURGE` followed by the environment name, such as `PURGE DEV` or `PURGE PROD`.
+
+PROD full purge can be enabled explicitly in PROD Settings. A disabled full purge action is hidden in the popup, and the background handler rejects the request using the saved environment policy before any network call. Current page purge remains available regardless of the full purge setting.
+
+Both settings are independent for each environment and persist through saving, importing, exporting and restart. JSON uses the boolean fields `fullPurgeEnabled` and `confirmPurge`. Existing configurations without these fields inherit full purge enabled for non-PROD environments, disabled for PROD, and confirmation disabled everywhere. The background reads the saved policy for every action, so a stale popup cannot bypass newly enabled confirmation or a disabled full purge.
+
+## Purge activity and console
+
+Open **Settings and purge activity** to see the latest 100 requests. The list updates when new results arrive and retains:
+
+1. Start and finish timestamps.
+2. Environment and country.
+3. Page or entire environment scope and purge mode.
+4. Publish target and forwarded public host.
+5. HTTP status and provider request ID when supplied.
+6. A local request ID and outcome.
+
+| State     | Meaning                                                                         |
+| :-------- | :------------------------------------------------------------------------------ |
+| PENDING   | The request has started                                                         |
+| SUCCEEDED | AEM returned a successful HTTP response with JSON `status: ok`                  |
+| ACCEPTED  | HTTP was successful, but the response did not confirm `status: ok`              |
+| FAILED    | HTTP failed or the JSON response reported a failure                             |
+| UNKNOWN   | A network error, timeout or interrupted request prevents confirming the outcome |
+
+These states describe the API response. The extension does not poll a separate CDN completion endpoint or verify every cache location. A pending request older than 30 seconds is displayed as an interrupted request with an unknown outcome.
+
+Requests time out after 25 seconds and are never retried automatically. Only one purge at a time can run per environment in the active worker. Verify the result before retrying an unknown outcome, because the provider might already have processed the request.
+
+For console logs, open `chrome://extensions`, find this extension and select its **service worker** inspection link. The console prints `[AEM CDN Toolkit] Purge` records. Logs do not contain header values or raw response bodies. The activity list can be cleared from Settings. Records contain visited paths and query strings, so treat them as local browsing diagnostics.
+
+## Random cache parameter
+
+**Add random cache parameter** updates the current tab with a new UUID value and replaces any previous occurrences of that parameter. Other parameters and the fragment are preserved.
+
+Its effectiveness depends on the CDN cache key or bypass configuration. It modifies the page URL only, not every script, image or API URL. It does not clear the browser cache.
+
+## Credential handling and permissions
+
+Environment settings, including `edgeKey` and `purgeKey`, are stored locally and remain available after restart. On a fresh installation, the extension loads the bundled `config.json` automatically. A configuration imported or saved in Settings takes precedence over the bundled file. After editing the bundled file in an existing installation, reload the extension and select **Use bundled config.json** once to remove the saved override and activate the file. Key values in JSON and local extension storage are plaintext, not an encrypted vault.
+
+Configuration imports and exports include the environment keys. Treat configuration files as credentials. Imports clear active publish rules and load the keys from the imported configuration. **Clear saved keys and active headers** saves empty keys in the local configuration and removes active request header rules and saved publish country contexts. It does not modify the bundled file. Selecting **Use bundled config.json** restores the keys configured in that file. Keys remain excluded from console logs and purge activity.
+
+The extension requests `activeTab`, `storage` and `declarativeNetRequestWithHostAccess`, with optional HTTPS host access. There are no content scripts or remote scripts. HTTP, incognito windows and redirecting purge endpoints are unsupported.
+
+This integration purges the Adobe AEM CDN. It does not purge a separate customer CDN, and it does not invalidate the Dispatcher cache. Ensure that the Dispatcher can supply updated content before purging the Adobe CDN.
+
+## Tests and validation
+
+Run from the extension folder with Node 20 or later. The extension has no runtime dependencies; development dependencies provide linting and formatting.
+
+```bash
+npm ci
+npm run check
+```
+
+`npm run check` runs ESLint, verifies formatting with Prettier, and runs the complete test suite. Use `npm run lint:fix` and `npm run format` to apply lint fixes and formatting, or `npm test` to run tests alone. Development tool versions and their dependency tree are pinned in `package-lock.json`.
+
+The package includes 69 tests covering per-environment purge settings, optional confirmation, explicit PROD full purge, duplicate-click prevention, import confirmation and failures, hyphenated cache parameters, trusted Settings-tab messages, packaged PNG icons, domain recognition, toolbar updates, synchronous worker listener registration, popup eligibility, country mapping, shared publish contexts, forwarded hosts, header scoping, direct AEM purge construction, response status tracking, secret exclusion, and migration. Options and popup tests use a simulated DOM; background and activation tests mock browser APIs and network calls.
+
+The automated suite uses synthetic credentials and sends no real AEM purge requests. Native browser rendering is a separate verification step. After configuration, validate page purge and publish access in DEV before using other environments.
+
+The PNG icons are packaged with the extension and require no build step. To regenerate them after changing their drawing, run `python3 scripts/generate-icons.py`; the script uses only the Python standard library.
+
+## Official references
+
+1. [Adobe CDN purge API](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-cache-purge)
+2. [Adobe CDN credentials and authentication](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-credentials-authentication)
+3. [Adobe CDN purge tutorial and response formats](https://experienceleague.adobe.com/en/docs/experience-manager-learn/cloud-service/caching/how-to/purge-cache)
+4. [Chrome declarativeNetRequest](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest)

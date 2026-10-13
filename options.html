@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AEM CDN Toolkit Settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="settings">
+      <div class="eyebrow">AEM · CDN · ENVIRONMENTS</div>
+      <h1>Environment settings</h1>
+      <p class="muted">
+        One publish origin and one pair of CDN keys per environment. Multiple
+        public country sites.
+      </p>
+      <div class="toolbar">
+        <select id="environment" aria-label="Environment"></select
+        ><button id="save">Save environment</button
+        ><button id="export" class="secondary">Export configuration</button
+        ><button id="import" class="secondary">Import JSON</button
+        ><button id="bundled" class="secondary">Use bundled config.json</button
+        ><input
+          id="importFile"
+          type="file"
+          accept=".json,application/json"
+          hidden
+        />
+      </div>
+      <div id="status" role="status" aria-live="polite"></div>
+      <section class="card">
+        <h2>Environment</h2>
+        <label for="publishUrl">AEM publish URL</label
+        ><input
+          id="publishUrl"
+          type="url"
+          placeholder="https://publish-p123456-e123456.adobeaemcloud.com/"
+        />
+        <p class="hint">
+          The same publish origin is used by every country in this environment.
+          Enter an HTTPS origin without a path.
+        </p>
+        <div class="grid">
+          <div>
+            <label for="cacheParam">Random cache parameter</label
+            ><input id="cacheParam" />
+          </div>
+          <div>
+            <label for="purgeMode">Current page purge mode</label
+            ><select id="purgeMode">
+              <option value="soft">Soft purge</option>
+              <option value="hard">Hard purge</option>
+            </select>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Purge settings</h2>
+        <label class="check"
+          ><input id="fullPurgeEnabled" type="checkbox" />Enable full
+          environment purge</label
+        >
+        <p class="hint">
+          Show the full purge action for this environment. It purges all cached
+          resources across every country. PROD is disabled by default and can be
+          enabled explicitly.
+        </p>
+        <label class="check"
+          ><input id="confirmPurge" type="checkbox" />Require purge
+          confirmation</label
+        >
+        <p class="hint">
+          When disabled, page and full purge run immediately on click. When
+          enabled, page purge requires confirmation and full purge also requires
+          typing PURGE followed by the environment name.
+        </p>
+      </section>
+      <section class="card">
+        <div class="topline">
+          <h2>Country mappings</h2>
+          <button id="addCountry" class="secondary">Add country</button>
+        </div>
+        <div id="countries"></div>
+        <p class="hint">
+          Country codes must be unique, for example GB, IE or US. Public URL
+          prefixes are supported. Leave the publish path prefix as / when both
+          URLs use the same path.
+        </p>
+      </section>
+      <section class="card">
+        <h2>AEM CDN credentials</h2>
+        <div class="grid">
+          <div>
+            <label for="edgeKey">X-AEM-Edge-Key</label
+            ><input id="edgeKey" type="password" autocomplete="off" />
+            <p class="hint">Used for publish navigation and CDN purge.</p>
+          </div>
+          <div>
+            <label for="purgeKey">X-AEM-Purge-Key</label
+            ><input id="purgeKey" type="password" autocomplete="off" />
+            <p class="hint">Used only for CDN purge requests.</p>
+          </div>
+        </div>
+        <p class="notice">
+          Keys belong to the environment and are shared by its countries. Set
+          edgeKey and purgeKey directly in config.json or import a JSON
+          configuration. Keys are saved with the environment and remain
+          available after restart. Exports include keys.
+        </p>
+        <p class="hint">
+          X-Forwarded-Host is derived automatically from the public site's host,
+          without protocol or path. Full environment purge uses X-AEM-Purge: all
+          and follows this environment's purge settings.
+        </p>
+      </section>
+      <div class="actions">
+        <button id="clearSecrets" class="secondary">
+          Clear saved keys and active headers
+        </button>
+      </div>
+      <section class="card" id="activity">
+        <div class="topline">
+          <h2>Purge activity</h2>
+          <div class="actions">
+            <button id="refreshHistory" class="secondary">Refresh</button
+            ><button id="clearHistory" class="secondary">Clear activity</button>
+          </div>
+        </div>
+        <p class="hint">
+          The latest 100 requests are saved locally. This records the API
+          response, not a separate CDN completion check. Keys and raw response
+          bodies are never logged.
+        </p>
+        <div id="history" aria-live="polite"></div>
+      </section>
+      <dialog id="importDialog">
+        <h2>Import configuration</h2>
+        <p>
+          This replaces all environments, clears active publish headers and
+          loads the environment keys from the imported file. Version 1 mappings
+          are migrated when each environment has one publish origin. Generic
+          purge API settings are replaced by the AEM CDN integration.
+        </p>
+        <div id="importStatus" role="status" aria-live="polite"></div>
+        <div class="actions">
+          <button id="applyImport">Import</button
+          ><button id="cancelImport" class="secondary">Cancel</button>
+        </div>
+      </dialog>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

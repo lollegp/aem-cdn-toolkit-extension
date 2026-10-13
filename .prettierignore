@@ -1,0 +1,7 @@
+node_modules/
+.idea/
+.git/
+icons/
+package-lock.json
+config.local.json
+

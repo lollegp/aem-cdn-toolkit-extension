@@ -1,0 +1,277 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #17304b;
+  background: #f3f6fa;
+  font-size: 14px;
+  color-scheme: light;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  padding: 22px;
+}
+h1 {
+  font-size: 23px;
+  letter-spacing: -0.5px;
+  margin: 5px 0 8px;
+}
+h2 {
+  font-size: 17px;
+  margin: 0 0 16px;
+}
+p {
+  line-height: 1.55;
+}
+.muted {
+  color: #617389;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #007d86;
+}
+label {
+  display: block;
+  font-weight: 650;
+  margin: 16px 0 6px;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #ccd6e2;
+  border-radius: 8px;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  resize: vertical;
+  min-height: 100px;
+}
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  background: #173c61;
+  color: white;
+}
+button:hover {
+  filter: brightness(1.1);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.secondary {
+  background: #e5edf5;
+  color: #173c61;
+}
+.danger {
+  background: #b64734;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.card {
+  padding: 22px;
+  background: white;
+  border: 1px solid #dce4ed;
+  border-radius: 12px;
+  margin: 18px 0;
+}
+.hint {
+  font-size: 12px;
+  color: #617389;
+  margin: 6px 0;
+}
+#status {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  margin-top: 16px;
+}
+#status[data-error='true'] {
+  color: #a52b29;
+}
+.popup {
+  width: 370px;
+}
+.popup button {
+  width: 100%;
+  margin-top: 10px;
+}
+.popup .url {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  background: #e9eff5;
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 85px;
+  overflow: auto;
+}
+.popup label {
+  margin-top: 15px;
+}
+.popup .linkbutton {
+  background: transparent;
+  color: #47637f;
+  margin-top: 14px;
+  padding: 4px;
+}
+.settings {
+  max-width: 940px;
+  margin: auto;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.header-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr auto;
+  gap: 8px;
+  margin: 8px 0;
+}
+.header-row button {
+  padding: 8px 11px;
+}
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.toolbar select {
+  max-width: 170px;
+}
+.toolbar button {
+  white-space: nowrap;
+}
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 400;
+}
+.check input {
+  width: auto;
+}
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #e5f3f1;
+  color: #25645e;
+}
+.popup .check {
+  margin-top: 12px;
+}
+.popup .check input {
+  width: auto;
+}
+dialog {
+  border: 1px solid #ccd6e2;
+  border-radius: 12px;
+  max-width: 650px;
+  padding: 24px;
+}
+dialog::backdrop {
+  background: #132b4480;
+}
+dialog pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 250px;
+  overflow: auto;
+  font-size: 12px;
+}
+.topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.topline button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+@media (max-width: 650px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .header-row {
+    grid-template-columns: 1fr;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+.country-row {
+  display: grid;
+  grid-template-columns: 80px 2fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  border-bottom: 1px solid #e4ebf3;
+  padding: 10px 0 16px;
+}
+.country-row label {
+  font-size: 12px;
+}
+.country-row input {
+  margin-top: 6px;
+}
+.history-item {
+  padding: 16px 0;
+  border-top: 1px solid #e4ebf3;
+}
+.history-item p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.activity {
+  font-size: 12px;
+  padding-top: 12px;
+  color: #47637f;
+}
+.popup .grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.popup .hint {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .country-row {
+    grid-template-columns: 1fr;
+  }
+  .country-row label {
+    margin-top: 4px;
+  }
+}
+#importStatus {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+#importStatus[data-error='true'] {
+  color: #a52b29;
+}
+button:disabled {
+  cursor: not-allowed;
+}
