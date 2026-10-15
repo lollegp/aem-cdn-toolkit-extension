@@ -11,6 +11,7 @@ let listener,
   currentURL = 'https://us.example.invalid/ports?_cacheBust=123#map';
 const events = [],
   rules = new Map();
+let incognito = false;
 let granted = true,
   fetchCount = 0,
   captured;
@@ -84,7 +85,7 @@ globalThis.chrome = {
     },
     remove: async () => events.push({ type: 'closeTab' }),
     query: async () => [],
-    get: async (id) => ({ id, url: currentURL }),
+    get: async (id) => ({ id, url: currentURL, windowId: 12, incognito }),
     update: async (id, details) =>
       events.push({ type: 'navigate', id, ...details }),
     onUpdated: activationEvent,
@@ -502,5 +503,62 @@ test('Publish opens a new window only when configured', async () => {
     assert.match(r.text, /new window/);
   } finally {
     delete config.environments[0].publishOpenMode;
+  }
+});
+
+for (const privateMode of [false, true]) {
+  for (const mode of ['tab', 'window']) {
+    test(`Publish preserves incognito=${privateMode} in ${mode} mode`, async () => {
+      incognito = privateMode;
+      events.length = 0;
+      session.secrets = {
+        DEV: { edgeKey: 'edge-key-value', purgeKey: 'purge-key-value' },
+      };
+      config.environments[0].publishOpenMode = mode;
+      try {
+        assert.equal((await send('publish')).ok, true);
+        if (mode === 'window') assert.equal(events[0].incognito, privateMode);
+        else assert.equal(events[0].windowId, 12);
+        assert.deepEqual(rules.get(51).condition.tabIds, [50]);
+      } finally {
+        incognito = false;
+        delete config.environments[0].publishOpenMode;
+      }
+    });
+  }
+}
+test('Incognito purge never writes history for success, rejection or network failure', async () => {
+  incognito = true;
+  const before = JSON.stringify(local.purgeHistory);
+  const savedFetch = globalThis.fetch;
+  const storageSet = chrome.storage.local.set;
+  let writes = 0;
+  chrome.storage.local.set = async (value) => {
+    writes++;
+    return storageSet(value);
+  };
+  try {
+    for (const action of ['purge', 'purgeAll']) {
+      for (const status of [200, 500, 'network']) {
+        globalThis.fetch = async () => {
+          if (status === 'network') throw new Error('offline');
+          return {
+            status,
+            headers: { get: () => 'application/json' },
+            json: async () => ({ status: status === 200 ? 'ok' : 'error' }),
+          };
+        };
+        const result = await send(action);
+        assert.equal(result.ok, status === 200);
+        assert.ok(result.record);
+        assert.doesNotMatch(result.text, /See Purge activity/);
+        assert.equal(JSON.stringify(local.purgeHistory), before);
+      }
+    }
+    assert.equal(writes, 0);
+  } finally {
+    incognito = false;
+    globalThis.fetch = savedFetch;
+    chrome.storage.local.set = storageSet;
   }
 });

@@ -101,6 +101,11 @@ function updateEnvironment() {
   updateCountry();
 }
 async function latest() {
+  if (tab?.incognito) {
+    $('latest').textContent =
+      'Incognito purge activity is not saved. Settings and activity open in a regular window.';
+    return;
+  }
   const history =
     (await chrome.storage.local.get('purgeHistory')).purgeHistory || [];
   const r = history.find((r) => r.environment === $('environment').value);
@@ -247,12 +252,17 @@ $('cancelPurge').addEventListener('click', () => {
   pendingAction = undefined;
   status('');
 });
-$('options').addEventListener('click', () =>
-  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#settings') }),
-);
-$('activity').addEventListener('click', () =>
-  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#activity') }),
-);
+function openSection(section) {
+  const url = chrome.runtime.getURL('options.html#' + section);
+  // Spanning extensions cannot load extension pages in incognito tabs.
+  const opening =
+    tab?.incognito || chrome.extension?.inIncognitoContext
+      ? chrome.windows.create({ url, incognito: false, focused: true })
+      : chrome.tabs.create({ url });
+  return opening.catch((error) => status(error.message, true));
+}
+$('options').addEventListener('click', () => openSection('settings'));
+$('activity').addEventListener('click', () => openSection('activity'));
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.purgeHistory) latest();
 });

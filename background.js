@@ -23,7 +23,9 @@ function serial(fn) {
 const ready = secureStorage();
 startActivation(ready);
 const inFlight = new Set();
-async function logRecord(record, epoch) {
+async function logRecord(record, epoch, incognito = false) {
+  // Private browsing activity must never enter persistent extension storage.
+  if (incognito) return;
   await serial(async () => {
     if (epoch !== historyEpoch) return;
     const history =
@@ -178,6 +180,7 @@ async function execute(message) {
             url: 'about:blank',
             type: 'normal',
             focused: true,
+            incognito: Boolean(tab.incognito),
           })).tabs?.[0]
         : await chrome.tabs.create({
             url: 'about:blank',
@@ -234,6 +237,9 @@ async function execute(message) {
       throw new Error(
         'Purge confirmation is required. Reopen the popup if environment settings changed.',
       );
+    const activityHint = tab.incognito
+      ? ' Incognito activity is not saved.'
+      : ' See Purge activity.';
     const headers = requestHeaders(secrets, page.forwardedHost, request.mode);
     // Keep the environment quiet until its current purge request completes.
     if (inFlight.has(env.name))
@@ -256,7 +262,7 @@ async function execute(message) {
     const timer = setTimeout(() => controller.abort(), 25000);
     let requestStarted = false;
     try {
-      await logRecord(record, recordEpoch);
+      await logRecord(record, recordEpoch, tab.incognito);
       assertCurrent();
       requestStarted = true;
       const response = await fetch(request.url, {
@@ -289,21 +295,23 @@ async function execute(message) {
         ...result,
         finishedAt: new Date().toISOString(),
       };
-      await logRecord(final, recordEpoch);
+      await logRecord(final, recordEpoch, tab.incognito);
       if (result.state === 'failed')
         return {
           ok: false,
           text:
             'AEM CDN purge failed (HTTP ' +
             response.status +
-            '). See Purge activity.',
+            ').' +
+            activityHint,
           record: final,
         };
       return {
         text:
           result.state === 'succeeded'
-            ? 'AEM CDN returned status ok. See Purge activity for the request ID.'
-            : 'Purge request accepted. Completion was not confirmed by the response.',
+            ? 'AEM CDN returned status ok.' + activityHint
+            : 'Purge request accepted. Completion was not confirmed by the response.' +
+              activityHint,
         record: final,
       };
     } catch (error) {
@@ -317,7 +325,7 @@ async function execute(message) {
           ? 'Request timed out after 25 seconds. Verify before retrying.'
           : 'Network request failed. Verify the outcome before retrying.',
       };
-      await logRecord(final, recordEpoch);
+      await logRecord(final, recordEpoch, tab.incognito);
       return { ok: false, text: final.error, record: final };
     } finally {
       clearTimeout(timer);

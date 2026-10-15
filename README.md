@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Your environments. Your page. One toolkit.</strong></p>
 <p align="center">Manage Adobe AEM CDN cache and authenticated publish access without leaving your browser.</p>
-<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.5.0 &nbsp; · &nbsp; No runtime dependencies</p>
+<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.6.0 &nbsp; · &nbsp; No runtime dependencies</p>
 
 <p align="center">
   <a href="#get-started">Get started</a> &nbsp; / &nbsp;
@@ -69,6 +69,10 @@ Fresh installs start empty. Use [config.example.json](config.example.json) as an
 
 **Updating locally?** Reload the extension in Chrome's extension manager, then close and reopen Settings and the popup.
 
+## Use in Incognito
+
+In `chrome://extensions`, open **AEM CDN Toolkit → Details → Allow in Incognito**. Saved environments and keys are shared with regular browsing. Publish opens in the source page's browsing mode; incognito purge results appear in the popup without being saved to activity. Settings and saved activity open in a regular window.
+
 ## Your configuration stays under your control
 
 - Configuration, credentials and activity are stored in your Chrome profile. No developer backend, analytics or telemetry.
@@ -92,7 +96,7 @@ npm run package
 
 `check` runs ESLint, Prettier and the Node test suite. `package` also builds and verifies:
 
-- `dist/aem-cdn-toolkit-2.5.0.zip` and its SHA-256 checksum.
+- `dist/aem-cdn-toolkit-2.6.0.zip` and its SHA-256 checksum.
 - `dist/site/`, the static presentation and privacy site with local artwork.
 
 Automated tests use simulated browser APIs and synthetic credentials. They send no live purge requests; real Chrome and AEM verification remain separate checks.

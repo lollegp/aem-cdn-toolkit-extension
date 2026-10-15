@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AEM CDN Toolkit",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "minimum_chrome_version": "120",
   "description": "AEM CDN purge, country mappings, cache parameters and authenticated publish access.",
   "permissions": [
@@ -34,5 +34,5 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'"
   },
-  "incognito": "not_allowed"
+  "incognito": "spanning"
 }
