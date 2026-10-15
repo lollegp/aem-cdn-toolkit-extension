@@ -29,7 +29,7 @@
       <p class="eyebrow">YOUR DATA</p>
       <h1>Privacy policy</h1>
       <p>
-        Effective October 13, 2026. This policy describes AEM CDN Toolkit 2.5.0,
+        Effective October 15, 2026. This policy describes AEM CDN Toolkit 2.6.0,
         maintained by the owner of the
         <a
           href="https://github.com/lollegp/aem-cdn-toolkit-extension"
@@ -92,13 +92,26 @@
         Host access is requested for the explicit HTTPS hosts in your
         configuration. The extension uses active-tab access, local and session
         storage, and tab-scoped request-header rules to provide its features.
-        Incognito operation is disabled. Configuration is not synced by this
-        extension.
+        Incognito is available only after you enable “Allow in Incognito” in
+        Chrome's extension settings. Saved configuration and keys are shared
+        between regular and incognito browsing. Configuration is not synced by
+        this extension.
       </p>
       <p>
         Exports exclude keys by default. If you choose to include keys, protect
         the downloaded JSON as a credential file. Imported files are processed
         locally.
+      </p>
+      <h2>Incognito activity</h2>
+      <p>
+        Purge requests made from incognito tabs are not written to persistent
+        activity history, including failed and interrupted attempts. Their
+        results are shown in the popup. Publish tabs and windows retain the
+        source page's browsing mode. Temporary publish context and header rules
+        are kept for the tab and removed when it closes. Settings and saved
+        activity open in a regular window; configuration changes persist for
+        both browsing modes. Requests still send the credentials and URLs needed
+        to your configured services, whose logging and privacy policies apply.
       </p>
       <h2>Retention and deletion</h2>
       <p>

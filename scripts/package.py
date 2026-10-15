@@ -11,7 +11,7 @@ manifest = json.loads((ROOT / 'manifest.json').read_text())
 config = json.loads((ROOT / 'config.json').read_text())
 assert config == {'version': 2, 'environments': []}, 'Release config must be empty'
 assert manifest['manifest_version'] == 3
-assert manifest['incognito'] == 'not_allowed'
+assert manifest['incognito'] == 'spanning'
 assert set(manifest['permissions']) == {'activeTab', 'storage', 'declarativeNetRequestWithHostAccess'}
 assert manifest['optional_host_permissions'] == ['https://*/*']
 assert not manifest.get('host_permissions'), 'Do not grant hosts at install time'

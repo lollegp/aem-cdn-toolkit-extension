@@ -13,6 +13,14 @@
 
 Existing version 1 configurations are migrated when each environment has one publish origin. Country labels are initially generated as SITE1, SITE2 and so on. Rename them to your country codes. Generic CDN API settings are replaced by the direct AEM CDN integration. Keys can now be configured directly at environment level in JSON and remain available after restart.
 
+## Incognito browsing
+
+Open `chrome://extensions`, select **Details** for AEM CDN Toolkit, and turn on **Allow in Incognito**. Reload the extension first when upgrading an unpacked installation. Chrome requires this opt-in; the extension cannot enable it for you.
+
+Environments, saved keys and preferences are shared with regular browsing. Page actions work in incognito, and authenticated publish tabs or windows keep the source page's browsing mode. Purge requests still go to the configured AEM service with its required credentials.
+
+Incognito purge attempts are never saved to persistent activity history, including success, failure and unknown outcomes. Read the result in the popup before closing it. Settings and saved activity open in a regular window. Publish tab context stays in session memory and its header rules are removed when the tab closes. Settings changes and credential clearing apply across both browsing modes.
+
 ## Environment and country settings
 
 Fresh installations start with no environments. The list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are examples in the optional config.example.json template. Each environment has one publish origin and its countries share the environment edge key and purge key.
@@ -187,7 +195,7 @@ Environment settings, including `edgeKey` and `purgeKey`, are stored locally and
 
 Imports can contain environment keys. Exports omit keys by default; select Include saved keys for a private credential backup. Treat configuration files as credentials. Imports clear active publish rules and load the keys from the imported configuration. **Clear saved keys and active headers** saves empty keys in the local configuration and removes active request header rules and saved publish country contexts. It does not modify the bundled file. Keys remain excluded from console logs and purge activity.
 
-The extension requests `activeTab`, `storage` and `declarativeNetRequestWithHostAccess`, with optional HTTPS host access. There are no content scripts or remote scripts. HTTP, incognito windows and redirecting purge endpoints are unsupported.
+The extension requests `activeTab`, `storage` and `declarativeNetRequestWithHostAccess`, with optional HTTPS host access. There are no content scripts or remote scripts. HTTP and redirecting purge endpoints are unsupported.
 
 This integration purges the Adobe AEM CDN. It does not purge a separate customer CDN, and it does not invalidate the Dispatcher cache. Ensure that the Dispatcher can supply updated content before purging the Adobe CDN.
 
@@ -217,7 +225,7 @@ The PNG icons are packaged with the extension and require no build step. When up
 
 ## Release package and website
 
-Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.5.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
+Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.6.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
 
 The bundled [help page](../help.html) and [privacy policy](../privacy.html) also form the public site at https://lollegp.github.io/aem-cdn-toolkit-extension/.
 

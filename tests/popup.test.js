@@ -28,6 +28,7 @@ class Element {
 let instance = 0;
 async function setup({
   url = 'https://us.example.invalid/ports',
+  incognito = false,
   context,
   invalidConfig = false,
   sharedDomain = false,
@@ -140,7 +141,7 @@ async function setup({
     };
   const calls = [],
     state = {
-      tab: { id: 1, url },
+      tab: { id: 1, url, incognito },
       response: { ok: false, text: 'Simulated request failure' },
       optionsOpened: false,
       openedURLs: [],
@@ -163,6 +164,12 @@ async function setup({
         if (url.endsWith('#settings')) state.optionsOpened = true;
       },
     },
+    windows: {
+      create: async (details) => {
+        state.openedWindow = details;
+      },
+    },
+    extension: { inIncognitoContext: incognito },
     permissions: { request: async () => true },
     runtime: {
       getURL: (path) => 'chrome-extension://test/' + path,
@@ -414,4 +421,20 @@ test('Adding a cache parameter refreshes the displayed current URL and eligibili
   await elements.bypass.listeners.click();
   assert.equal(elements.url.textContent, state.tab.url);
   assert.equal(elements.publish.disabled, false);
+});
+
+test('Incognito popup explains unsaved activity and opens management pages outside incognito', async () => {
+  const { elements, state } = await setup({ incognito: true });
+  assert.match(elements.latest.textContent, /not saved/);
+  for (const [button, route] of [
+    ['options', 'settings'],
+    ['activity', 'activity'],
+  ]) {
+    await elements[button].listeners.click();
+    assert.equal(state.openedWindow.incognito, false);
+    assert.equal(
+      state.openedWindow.url,
+      'chrome-extension://test/options.html#' + route,
+    );
+  }
 });

@@ -1,8 +1,8 @@
-# Chrome Web Store release: 2.5.0
+# Chrome Web Store release: 2.6.0
 
 ## Prepared locally
 
-- Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.5.0.zip`.
+- Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.6.0.zip`.
 - Empty configuration on first install. No keys, organization domains or sample environments in the runtime package.
 - Local help and privacy pages, plus a GitHub Pages build and automatic cross-repository publishing workflow.
 - 128×128 store icon: `icons/toolkit-neutral-128.png`.
@@ -10,7 +10,7 @@
 - Additional promotional artwork and illustrative interface previews: `docs/imgs/`. These do not replace the actual Chrome screenshots required below.
 - Development files, tests, sample configuration and original icon master files excluded from the ZIP.
 - No remote executable code, content scripts, analytics, tracking or developer backend.
-- Host access optional and requested for configured hosts; incognito disabled.
+- Host access optional and requested for configured hosts; incognito available through Chrome’s explicit Allow in Incognito toggle.
 
 ## Listing copy
 
@@ -73,7 +73,7 @@ Permission justifications:
 - Fixed credential-clear and mid-save races that could reinstall removed header rules.
 - Serialized all Settings writes in the worker and reject stale configuration snapshots.
 - Revoked active publish access when keys or identity/mappings change.
-- Disabled incognito in the manifest instead of only documenting it as unsupported.
+- Enabled spanning incognito support, preserved publish browsing mode and excluded incognito purge attempts from saved activity.
 - Omitted URL queries/fragments from new activity records and removed duplicate console logging.
 - Distinguished a cancelled, unsent purge from an uncertain network outcome.
 - Added unsaved-change protection and opt-in export of keys.
@@ -88,3 +88,16 @@ Permission justifications:
 - [Privacy dashboard fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)
 - [Program policies](https://developer.chrome.com/docs/webstore/program-policies/policies)
 - [Incognito manifest setting](https://developer.chrome.com/docs/extensions/reference/manifest/incognito)
+
+## Incognito verification for 2.6.0
+
+Automated tests cover regular/incognito publish tab and window options, tab-scoped header rules, private purge outcomes without persistent history writes, and management-page routing. Complete these real-Chrome checks before submitting:
+
+- Enable **Allow in Incognito** and grant the configured host permissions from Settings.
+- Confirm the popup and toolbar indicator work on a configured incognito page.
+- Open publish in both tab and window modes; verify incognito mode and actual header injection.
+- Verify cache-parameter navigation stays in the original incognito tab.
+- Send an authorized test purge and verify its result appears in the popup without entering saved activity.
+- Confirm Settings and saved activity open in a regular window, including when no regular window was open.
+- Close publish tabs and verify their rules and session contexts are removed.
+- Clear keys or change mappings while both browsing modes are open; confirm active headers are cleared in both.
