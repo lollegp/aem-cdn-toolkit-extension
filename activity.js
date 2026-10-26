@@ -5,12 +5,52 @@ function status(text, error = false) {
   $('activityStatus').textContent = text;
   $('activityStatus').dataset.error = error;
 }
+function programIdentity(record) {
+  return record.program || 'default';
+}
+function programLabel(record) {
+  return (
+    record.programName ||
+    (record.program && record.program !== 'default'
+      ? record.program
+      : 'Default')
+  );
+}
+function renderPrograms(records) {
+  const picker = $('historyProgram');
+  const selected = picker.value;
+  const programs = new Map();
+  for (const record of records) {
+    if (
+      record &&
+      typeof record.state === 'string' &&
+      !programs.has(programIdentity(record))
+    )
+      programs.set(programIdentity(record), programLabel(record));
+  }
+  picker.replaceChildren();
+  const all = document.createElement('option');
+  all.value = '';
+  all.textContent = 'All programs';
+  picker.append(all);
+  for (const [id, name] of programs) {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent =
+      [...programs.values()].filter((label) => label === name).length > 1
+        ? name + ' (' + id + ')'
+        : name;
+    picker.append(option);
+  }
+  picker.value = programs.has(selected) ? selected : '';
+}
 async function history() {
   const revision = ++renderRevision;
   try {
     const records =
       (await chrome.storage.local.get('purgeHistory')).purgeHistory || [];
     if (revision !== renderRevision) return;
+    renderPrograms(records);
     $('history').replaceChildren();
     status('');
     if (!records.length) {
@@ -19,9 +59,11 @@ async function history() {
     }
     const search = $('historySearch').value.trim().toLowerCase();
     const filter = $('historyState').value;
+    const programFilter = $('historyProgram').value;
     let displayed = 0;
     for (const record of records) {
       if (!record || typeof record.state !== 'string') continue;
+      if (programFilter && programIdentity(record) !== programFilter) continue;
       const card = document.createElement('article');
       card.className = 'history-item';
       const title = document.createElement('strong');
@@ -32,7 +74,12 @@ async function history() {
       if (filter && state !== filter) continue;
       if (
         search &&
-        ![record.environment, record.country, record.target]
+        ![
+          programLabel(record),
+          record.environment,
+          record.country,
+          record.target,
+        ]
           .join(' ')
           .toLowerCase()
           .includes(search)
@@ -58,6 +105,11 @@ async function history() {
         (record.scope === 'all' ? 'ENTIRE ENVIRONMENT' : 'PAGE') +
         ' · ' +
         (interrupted ? 'UNKNOWN (request interrupted)' : state.toUpperCase());
+      const badge = document.createElement('span');
+      badge.className = 'program-badge';
+      badge.textContent = 'Program: ' + programLabel(record);
+      badge.title = 'Program ID: ' + programIdentity(record);
+      title.append(badge);
       card.append(title);
       const details = document.createElement('div');
       details.className = 'hint history-details';
@@ -92,6 +144,7 @@ async function history() {
 }
 $('historySearch').addEventListener('input', history);
 $('historyState').addEventListener('change', history);
+$('historyProgram').addEventListener('change', history);
 $('refreshHistory').addEventListener('click', history);
 $('clearHistory').addEventListener('click', async () => {
   try {

@@ -21,7 +21,7 @@ assert manifest['version'] == json.loads((ROOT / 'package.json').read_text())['v
 files = [
     'manifest.json', 'config.json', 'activation.js', 'activity.js', 'background.js',
     'core.js', 'storage.js', 'sections.js', 'options.js', 'options.html',
-    'popup.js', 'popup.html', 'styles.css', 'help.html', 'privacy.html', 'site.css',
+    'theme.js', 'popup.js', 'popup.html', 'styles.css', 'help.html', 'privacy.html', 'site.css',
 ]
 presentation_assets = [
     'docs/imgs/AEM CDN Toolkit Showcase.png',

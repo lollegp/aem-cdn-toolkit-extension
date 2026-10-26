@@ -34,6 +34,14 @@ Open a configured public page, select its environment and country, and act from 
 
 A green toolbar dot identifies a configured domain. It does not confirm credentials or CDN connectivity.
 
+## Programs
+
+Use **Settings → Program** to add, rename, duplicate, or delete programs. Each program contains independent environments, country mappings, keys, and purge policies. Existing configurations appear in the **Default** program. Duplication copies settings without secret keys.
+
+The popup and toolbar detect configured domains across every program, regardless of the program last selected in Settings. A unique match selects its program automatically; overlapping matches require an explicit choice. Page actions still validate the configured URL path and country mapping.
+
+Import and export cover all programs. Existing version 1 and version 2 configuration files remain supported as the Default program. Import and reset replace the entire configuration. Purge activity identifies the program; older activity appears under Default.
+
 ## A closer look
 
 ### 01 / Act on the page in front of you

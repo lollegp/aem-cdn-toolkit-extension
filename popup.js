@@ -1,5 +1,7 @@
 import {
   matchPublicCountry,
+  programList,
+  programConfig,
   resolvePage,
   purgePolicy,
   requiresPurgeConfirmation,
@@ -9,6 +11,8 @@ import {
 import { loadConfig } from './storage.js';
 import { configuredSites } from './activation.js';
 const $ = (id) => document.getElementById(id);
+let workspace,
+  programId = 'default';
 let config,
   tab,
   context,
@@ -60,6 +64,7 @@ function controls() {
     : 'Full purge runs immediately and affects every country in this AEM environment.';
   if (
     context &&
+    (context.program || 'default') === programId &&
     selected()?.name === context.environment &&
     selected()?.publishUrl &&
     new URL(tab.url).origin === new URL(selected().publishUrl).origin
@@ -95,7 +100,11 @@ function updateEnvironment() {
   try {
     $('country').value = matchPublicCountry(selected(), tab.url).country.code;
   } catch {
-    if (context && context.environment === selected()?.name)
+    if (
+      context &&
+      (context.program || 'default') === programId &&
+      context.environment === selected()?.name
+    )
       $('country').value = context.country;
   }
   updateCountry();
@@ -108,7 +117,11 @@ async function latest() {
   }
   const history =
     (await chrome.storage.local.get('purgeHistory')).purgeHistory || [];
-  const r = history.find((r) => r.environment === $('environment').value);
+  const r = history.find(
+    (r) =>
+      (r.program || 'default') === programId &&
+      r.environment === $('environment').value,
+  );
   $('latest').textContent = r
     ? 'Latest purge: ' +
       r.state.toUpperCase() +
@@ -168,6 +181,7 @@ async function run(action) {
       throw new Error('Domain access was not granted.');
     const r = await chrome.runtime.sendMessage({
       action,
+      program: programId,
       environment: env.name,
       country,
       tabId: tab.id,
@@ -200,7 +214,9 @@ function confirmPurge(action) {
       request = purgeRequest(env, p, scope);
     pendingAction = action;
     $('purgeTarget').textContent =
-      'Environment: ' +
+      'Program: ' +
+      programList(workspace).find((program) => program.id === programId).name +
+      '\nEnvironment: ' +
       env.name +
       '\nScope: ' +
       (scope === 'all'
@@ -266,8 +282,58 @@ $('activity').addEventListener('click', () => openSection('activity'));
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.purgeHistory) latest();
 });
+function renderPopupPrograms() {
+  const picker = $('program');
+  if (!picker) return;
+  picker.replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Select program';
+  picker.append(placeholder);
+  for (const program of programList(workspace)) {
+    const option = document.createElement('option');
+    option.value = program.id;
+    option.textContent = program.name;
+    picker.append(option);
+  }
+  picker.value = programId;
+}
+function selectPopupProgram(matches = configuredSites(workspace, tab?.url)) {
+  config = programId
+    ? programConfig(workspace, programId)
+    : { version: 2, environments: [] };
+  $('environment').replaceChildren();
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Select environment';
+  $('environment').append(placeholder);
+  for (const env of config.environments) {
+    const option = document.createElement('option');
+    option.value = env.name;
+    option.textContent = env.name;
+    $('environment').append(option);
+  }
+  const relevant = matches.filter(
+    (match) => (match.program || 'default') === programId,
+  );
+  if (relevant.length === 1) $('environment').value = relevant[0].environment;
+  else if (
+    context &&
+    (context.program || 'default') === programId &&
+    relevant.some((match) => match.environment === context.environment)
+  )
+    $('environment').value = context.environment;
+}
+$('program')?.addEventListener('change', () => {
+  programId = $('program').value;
+  selectPopupProgram();
+  updateEnvironment();
+  latest();
+  status('');
+});
 try {
-  config = await loadConfig();
+  workspace = await loadConfig();
+  config = programConfig(workspace, programList(workspace)[0].id);
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   $('url').textContent = tab?.url || 'URL unavailable';
   const response = await chrome.runtime.sendMessage({
@@ -280,32 +346,35 @@ try {
         'The extension background did not respond. Reload the extension and reopen the popup.',
     );
   context = response.context;
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Select environment';
-  $('environment').append(placeholder);
-  for (const env of config.environments) {
-    const o = document.createElement('option');
-    o.value = env.name;
-    o.textContent = env.name;
-    $('environment').append(o);
-  }
-  const matches = configuredSites(config, tab?.url);
-  if (matches.length === 1) $('environment').value = matches[0].environment;
-  else if (
+  const matches = configuredSites(workspace, tab?.url);
+  const matchPrograms = [
+    ...new Set(matches.map((match) => match.program || 'default')),
+  ];
+  programId = matchPrograms.length === 1 ? matchPrograms[0] : '';
+  if (
     context &&
-    matches.some((match) => match.environment === context.environment)
+    matches.some(
+      (match) =>
+        (match.program || 'default') === (context.program || 'default') &&
+        match.environment === context.environment,
+    )
   )
-    $('environment').value = context.environment;
+    programId = context.program || 'default';
+  renderPopupPrograms();
+  selectPopupProgram(matches);
   updateEnvironment();
   await latest();
-  if (!config.environments.length) {
+  if (!programList(workspace).some((program) => program.environments.length)) {
     $('match').textContent =
       'No environments yet. Open Settings to add one or import a configuration.';
     $('options').textContent = 'Set up environments';
   }
+  if (!programId)
+    $('match').textContent = matches.length
+      ? 'Select a matching program.'
+      : 'No matching program. Select a program and environment, or open Settings.';
   if (matches.length > 1)
-    status('Multiple environments match. Select the correct one.');
+    status('Multiple programs or environments match. Select the correct one.');
 } catch (error) {
   status(error.message, true);
   ['bypass', 'publish', 'purge', 'purgeAll'].forEach(

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>AEM CDN Toolkit · Settings</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="theme.js" defer></script>
   </head>
   <body>
     <main class="settings">
@@ -25,6 +26,43 @@
           >Help &amp; privacy ↗</a
         >
       </header>
+      <section class="appearance" aria-label="Appearance">
+        <div>
+          <label for="themePreference">Appearance</label>
+          <p class="hint" id="themeHint">
+            System follows your computer’s light or dark mode. Changes save
+            automatically.
+          </p>
+          <span
+            id="themeStatus"
+            class="hint"
+            role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <select id="themePreference" aria-describedby="themeHint">
+          <option value="system">System (default)</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </section>
+      <section class="card" aria-label="Program">
+        <label for="program">Program</label
+        ><select id="program"></select>
+        <p class="hint">
+          Each program has its own environments, mappings, keys and purge
+          settings. The popup detects matching programs automatically.
+        </p>
+        <div class="actions">
+          <button id="addProgram">Add program</button
+          ><button id="renameProgram" class="secondary">Rename</button
+          ><button id="duplicateProgram" class="secondary">
+            Duplicate without keys</button
+          ><button id="removeProgram" class="danger-outline">
+            Delete program
+          </button>
+        </div>
+      </section>
       <nav class="section-tabs" role="tablist" aria-label="Toolkit sections">
         <button
           id="settingsTab"
@@ -289,8 +327,8 @@
         <section class="configuration-tools">
           <h2>Configuration &amp; data</h2>
           <p class="muted">
-            Import or export all environments. Reset removes configuration;
-            purge activity is retained.
+            Import or export all programs and environments. Reset removes
+            configuration; purge activity is retained.
           </p>
           <label class="check"
             ><input id="exportKeys" type="checkbox" />Include saved keys in
@@ -311,8 +349,8 @@
           <details class="maintenance">
             <summary>Credential maintenance</summary>
             <p class="hint">
-              Clear keys from every environment and remove active publish
-              headers. Environments and mappings are kept.
+              Clear keys from every program and environment and remove active
+              publish headers. Environments and mappings are kept.
             </p>
             <button id="clearSecrets" class="danger-outline">
               Clear saved keys and active headers
@@ -342,11 +380,17 @@
         </div>
         <div class="grid activity-filters">
           <div>
+            <label for="historyProgram">Program</label>
+            <select id="historyProgram">
+              <option value="">All programs</option>
+            </select>
+          </div>
+          <div>
             <label for="historySearch">Find a request</label
             ><input
               id="historySearch"
               type="search"
-              placeholder="Environment, country or path"
+              placeholder="Program, environment, country or path"
             />
           </div>
           <div>
@@ -385,8 +429,9 @@
       <dialog id="importDialog" aria-labelledby="importDialogTitle">
         <h2 id="importDialogTitle">Replace configuration?</h2>
         <p>
-          Import replaces all environments and keys and clears active publish
-          headers. Export your current configuration first if you need a backup.
+          Import replaces all programs, environments and keys and clears active
+          publish headers. Export your current configuration first if you need a
+          backup.
         </p>
         <div id="importStatus" role="status" aria-live="polite"></div>
         <div class="actions">

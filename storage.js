@@ -6,9 +6,11 @@ export async function loadConfig() {
   if (!response.ok) throw new Error('Unable to load bundled config.json.');
   return validateConfig(await response.json());
 }
-export async function loadSecrets(config = undefined) {
+export async function loadSecrets(config = undefined, allowLegacy = true) {
   config ??= await loadConfig();
-  const legacy = (await chrome.storage.session.get('secrets')).secrets || {};
+  const legacy = allowLegacy
+    ? (await chrome.storage.session.get('secrets')).secrets || {}
+    : {};
   return Object.fromEntries(
     config.environments.map((env) => [
       env.name,

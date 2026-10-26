@@ -30,6 +30,8 @@ async function setup({
   url = 'https://us.example.invalid/ports',
   incognito = false,
   context,
+  programs = false,
+  overlap = false,
   invalidConfig = false,
   sharedDomain = false,
   missingContextResponse = false,
@@ -40,6 +42,7 @@ async function setup({
   prodFullPurgeEnabled = false,
 } = {}) {
   const ids = [
+    'program',
     'environment',
     'country',
     'url',
@@ -74,7 +77,7 @@ async function setup({
     ids.map((id) => [
       id,
       new Element(
-        ['environment', 'country'].includes(id)
+        ['program', 'environment', 'country'].includes(id)
           ? 'select'
           : buttons.includes(id)
           ? 'button'
@@ -151,7 +154,29 @@ async function setup({
       local: {
         get: async (key) => ({
           [key]:
-            key === 'config' ? (invalidConfig ? { version: 99 } : config) : [],
+            key === 'config'
+              ? invalidConfig
+                ? { version: 99 }
+                : programs
+                ? {
+                    version: 3,
+                    programs: [
+                      {
+                        id: 'first',
+                        name: 'First',
+                        environments: overlap ? config.environments : [],
+                      },
+                      {
+                        id: 'second',
+                        name: 'Second',
+                        environments: config.environments,
+                      },
+                    ],
+                  }
+                : config
+              : key === 'selectedProgram'
+              ? 'first'
+              : [],
         }),
       },
       onChanged: { addListener: () => {} },
@@ -437,4 +462,22 @@ test('Incognito popup explains unsaved activity and opens management pages outsi
       'chrome-extension://test/options.html#' + route,
     );
   }
+});
+
+test('Popup detects a matching program regardless of last Settings selection', async () => {
+  const { elements, calls } = await setup({ programs: true });
+  assert.equal(elements.program.value, 'second');
+  assert.equal(elements.environment.value, 'DEV');
+  assert.equal(elements.country.value, 'US');
+  await elements.purge.listeners.click();
+  assert.equal(calls.at(-1).program, 'second');
+});
+test('Overlapping programs require explicit selection before actions', async () => {
+  const { elements } = await setup({ programs: true, overlap: true });
+  assert.equal(elements.program.value, '');
+  assert.equal(elements.purge.disabled, true);
+  elements.program.value = 'second';
+  elements.program.listeners.change();
+  assert.equal(elements.environment.value, 'DEV');
+  assert.equal(elements.purge.disabled, false);
 });

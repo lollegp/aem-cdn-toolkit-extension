@@ -46,6 +46,11 @@ class Element {
 let instance = 0;
 async function setup({ savedConfig = defaults() } = {}) {
   const ids = [
+    'program',
+    'addProgram',
+    'renameProgram',
+    'duplicateProgram',
+    'removeProgram',
     'environment',
     'environmentName',
     'environmentFields',
@@ -85,7 +90,10 @@ async function setup({ savedConfig = defaults() } = {}) {
     'importStatus',
   ];
   const elements = Object.fromEntries(
-    ids.map((id) => [id, new Element(id === 'environment' ? 'select' : 'div')]),
+    ids.map((id) => [
+      id,
+      new Element(['program', 'environment'].includes(id) ? 'select' : 'div'),
+    ]),
   );
   globalThis.document = {
     getElementById: (id) => elements[id],
@@ -93,7 +101,7 @@ async function setup({ savedConfig = defaults() } = {}) {
   };
   const bundled = defaults(),
     saved = structuredClone(savedConfig);
-  if (saved.environments[0]) {
+  if (saved.environments?.[0]) {
     saved.environments[0].edgeKey = 'existing-edge';
     saved.environments[0].purgeKey = 'existing-purge';
   }
@@ -135,8 +143,9 @@ async function setup({ savedConfig = defaults() } = {}) {
         assert.equal(message.action, 'saveConfiguration');
         if (
           message.clearCredentials ||
-          (message.config.environments.length ===
-            local.config.environments.length &&
+          (message.config.environments?.length ===
+            local.config.environments?.length &&
+            message.config.environments &&
             message.config.environments.some(
               (env) =>
                 !local.config.environments.some((old) => old.name === env.name),
@@ -541,4 +550,28 @@ test('Clearing keys warns before discarding unrelated draft edits', async () => 
   assert.equal(h.elements.environmentName.value, 'Draft');
   assert.equal(h.local.config.environments[0].edgeKey, 'existing-edge');
   assert.deepEqual(h.events, []);
+});
+
+test('Duplicate program preserves all settings but excludes keys', async () => {
+  const { elements, local } = await setup();
+  globalThis.prompt = () => 'Second';
+  await elements.duplicateProgram.listeners.click();
+  assert.equal(local.config.version, 3);
+  assert.equal(local.config.programs.length, 2);
+  assert.equal(
+    local.config.programs[0].environments[0].edgeKey,
+    'existing-edge',
+  );
+  const duplicate = local.config.programs[1];
+  assert.equal(duplicate.name, 'Second');
+  assert.equal(duplicate.environments[0].edgeKey, '');
+  assert.equal(duplicate.environments[0].purgeKey, '');
+  assert.equal(
+    duplicate.environments.length,
+    local.config.programs[0].environments.length,
+  );
+  assert.equal(elements.program.value, duplicate.id);
+  elements.program.value = 'default';
+  await elements.program.listeners.change();
+  assert.equal(elements.edgeKey.value, 'existing-edge');
 });

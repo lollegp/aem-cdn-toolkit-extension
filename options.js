@@ -1,5 +1,7 @@
 import {
   createEnvironment,
+  programList,
+  programConfig,
   exportConfiguration,
   validateConfig,
   validateHeaders,
@@ -7,6 +9,8 @@ import {
 } from './core.js';
 import { loadConfig, loadSecrets, secureStorage } from './storage.js';
 const $ = (id) => document.getElementById(id);
+let workspace,
+  programId = 'default';
 let config,
   secrets,
   pendingImport,
@@ -111,7 +115,7 @@ $('createEnvironment').addEventListener('click', async () => {
     buttonLock(true);
     await persistConfig(validated);
     config = validated;
-    secrets = await loadSecrets();
+    secrets = await loadSecrets(config, programId === 'default');
     renderEnvironments(name);
     show();
     $('environmentDialog').close();
@@ -137,7 +141,7 @@ $('removeEnvironment').addEventListener('click', async () => {
     });
     await persistConfig(validated, true);
     config = validated;
-    secrets = await loadSecrets();
+    secrets = await loadSecrets(config, programId === 'default');
     renderEnvironments();
     show();
     status(
@@ -233,13 +237,29 @@ function show() {
   buttonLock(busy);
   status('');
 }
-async function persistConfig(next, clearCredentials = false) {
+async function persistConfig(
+  next,
+  clearCredentials = false,
+  wholeWorkspace = false,
+) {
+  const saved = wholeWorkspace
+    ? next
+    : workspace?.programs
+    ? validateConfig({
+        version: 3,
+        programs: workspace.programs.map((program) =>
+          program.id === programId
+            ? { ...program, environments: next.environments }
+            : program,
+        ),
+      })
+    : next;
   let response;
   try {
     response = await chrome.runtime.sendMessage({
       action: 'saveConfiguration',
-      config: next,
-      expectedConfig: config || null,
+      config: saved,
+      expectedConfig: workspace || config || null,
       clearCredentials,
     });
   } catch {
@@ -253,9 +273,19 @@ async function persistConfig(next, clearCredentials = false) {
     );
   if (!response.ok)
     throw new Error(response.text || 'Unable to save configuration.');
+  workspace = saved;
 }
 function buttonLock(value) {
   busy = value;
+  for (const id of [
+    'program',
+    'addProgram',
+    'renameProgram',
+    'duplicateProgram',
+    'removeProgram',
+  ]) {
+    if ($(id)) $(id).disabled = value;
+  }
   [
     'save',
     'import',
@@ -326,7 +356,7 @@ $('save').addEventListener('click', async () => {
       throw new Error('Domain access was not granted.');
     await persistConfig(validated);
     config = validated;
-    secrets = await loadSecrets();
+    secrets = await loadSecrets(config, programId === 'default');
     renderEnvironments(name);
     show();
     status(name + ' saved. Open publish again to use updated access settings.');
@@ -340,20 +370,22 @@ $('resetConfiguration').addEventListener('click', async () => {
   if (busy) return;
   if (
     !confirm(
-      'Reset configuration? This deletes all saved environments, mappings and keys, and clears active publish headers. Activity logs are retained. Export your configuration first if you want to keep it.',
+      'Reset configuration? This deletes all programs, environments, mappings and keys, and clears active publish headers. Activity logs are retained. Export your configuration first if you want to keep it.',
     )
   )
     return;
   buttonLock(true);
   try {
     const empty = validateConfig({ version: 2, environments: [] });
-    await persistConfig(empty, true);
+    await persistConfig(empty, true, true);
+    programId = 'default';
     config = empty;
+    renderPrograms();
     secrets = {};
     renderEnvironments();
     show();
     status(
-      'Configuration reset. All environments and saved keys removed; activity is retained.',
+      'Configuration reset. All programs, environments and saved keys removed; activity is retained.',
     );
   } catch (error) {
     status(error.message, true);
@@ -363,7 +395,10 @@ $('resetConfiguration').addEventListener('click', async () => {
 });
 $('export').addEventListener('click', () => {
   if (busy || !config) return;
-  const exported = exportConfiguration(config, $('exportKeys').checked);
+  const exported = exportConfiguration(
+    workspace || config,
+    $('exportKeys').checked,
+  );
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' }),
   );
@@ -416,13 +451,19 @@ $('applyImport').addEventListener('click', async () => {
   importStatus('Importing configuration…');
   try {
     const origins = [
-      ...new Set(imported.environments.flatMap(permissionOrigins)),
+      ...new Set(
+        programList(imported)
+          .flatMap((program) => program.environments)
+          .flatMap(permissionOrigins),
+      ),
     ];
     if (origins.length && !(await chrome.permissions.request({ origins })))
       throw new Error('Domain access was not granted.');
-    await persistConfig(imported, true);
-    config = imported;
-    secrets = await loadSecrets();
+    await persistConfig(imported, true, true);
+    programId = programList(imported)[0].id;
+    config = programConfig(imported, programId);
+    renderPrograms();
+    secrets = await loadSecrets(config, programId === 'default');
     renderEnvironments();
     pendingImport = undefined;
     $('importDialog').close();
@@ -450,9 +491,10 @@ $('clearSecrets').addEventListener('click', async () => {
         purgeKey: '',
       })),
     });
-    await persistConfig(cleared, true);
-    config = cleared;
-    secrets = await loadSecrets();
+    const next = workspace.programs ? exportConfiguration(workspace) : cleared;
+    await persistConfig(next, true, true);
+    config = programConfig(next, programId);
+    secrets = await loadSecrets(config, programId === 'default');
     show();
     status('Saved keys and active publish headers cleared.');
   } catch (error) {
@@ -461,10 +503,123 @@ $('clearSecrets').addEventListener('click', async () => {
     buttonLock(false);
   }
 });
+function renderPrograms() {
+  const picker = $('program');
+  if (!picker) return;
+  picker.replaceChildren();
+  for (const program of programList(workspace)) {
+    const option = document.createElement('option');
+    option.value = program.id;
+    option.textContent = program.name;
+    picker.append(option);
+  }
+  picker.value = programId;
+}
+async function selectProgram(id) {
+  programId = id;
+  config = programConfig(workspace, programId);
+  secrets = await loadSecrets(config, programId === 'default');
+  renderPrograms();
+  renderEnvironments();
+  show();
+  await chrome.storage.local.set({ selectedProgram: programId });
+}
+$('program')?.addEventListener('change', async () => {
+  if (busy || !canDiscard()) {
+    $('program').value = programId;
+    return;
+  }
+  buttonLock(true);
+  try {
+    await selectProgram($('program').value);
+  } catch (error) {
+    status(error.message, true);
+  } finally {
+    buttonLock(false);
+  }
+});
+for (const action of [
+  'addProgram',
+  'renameProgram',
+  'duplicateProgram',
+  'removeProgram',
+]) {
+  $(action)?.addEventListener('click', async () => {
+    if (busy || !workspace || !canDiscard()) return;
+    const programs = structuredClone(programList(workspace));
+    const current = programs.find((program) => program.id === programId);
+    let nextId = programId;
+    if (action === 'removeProgram') {
+      if (programs.length === 1) {
+        status('Keep at least one program.', true);
+        return;
+      }
+      if (
+        !confirm(
+          'Delete program ' +
+            current.name +
+            ' and all its environments, mappings and keys?',
+        )
+      )
+        return;
+      programs.splice(programs.indexOf(current), 1);
+      nextId = programs[0].id;
+    } else {
+      const name = prompt(
+        action === 'renameProgram' ? 'Program name' : 'New program name',
+        action === 'duplicateProgram'
+          ? current.name + ' copy'
+          : action === 'renameProgram'
+          ? current.name
+          : '',
+      );
+      if (name === null) return;
+      if (action === 'renameProgram') current.name = name;
+      else {
+        nextId = crypto.randomUUID();
+        programs.push({
+          id: nextId,
+          name,
+          environments:
+            action === 'duplicateProgram'
+              ? exportConfiguration({
+                  version: 2,
+                  environments: current.environments,
+                }).environments
+              : [],
+        });
+      }
+    }
+    buttonLock(true);
+    try {
+      const next = validateConfig({ version: 3, programs });
+      await persistConfig(next, action === 'removeProgram', true);
+      await selectProgram(nextId);
+      status(
+        action === 'duplicateProgram'
+          ? 'Program duplicated without keys.'
+          : 'Programs saved.',
+      );
+    } catch (error) {
+      status(error.message, true);
+    } finally {
+      buttonLock(false);
+    }
+  });
+}
 try {
   await secureStorage();
-  config = await loadConfig();
-  secrets = await loadSecrets();
+  workspace = await loadConfig();
+  const savedProgram = (await chrome.storage.local.get('selectedProgram'))
+    .selectedProgram;
+  programId = programList(workspace).some(
+    (program) => program.id === savedProgram,
+  )
+    ? savedProgram
+    : programList(workspace)[0].id;
+  config = programConfig(workspace, programId);
+  renderPrograms();
+  secrets = await loadSecrets(config, programId === 'default');
   renderEnvironments();
   show();
 } catch (error) {
