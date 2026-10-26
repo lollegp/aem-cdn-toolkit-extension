@@ -124,3 +124,10 @@ The [Pages workflow](.github/workflows/pages.yml) automatically syncs changes to
 ---
 
 Independent community tool. Not affiliated with or endorsed by Adobe or Google.
+
+## AI contributors
+
+Start with [AGENTS.md](AGENTS.md) for project rules and validation commands.
+[Architecture and maintenance](docs/ARCHITECTURE.md) explains runtime modules,
+program configuration, security boundaries, storage, tests and release flow.
+Claude and GitHub Copilot entry points reference the same shared guidance.
