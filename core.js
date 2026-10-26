@@ -186,7 +186,53 @@ export function migrateConfig(config) {
     }),
   };
 }
+export function programList(config) {
+  return (
+    config.programs || [
+      { id: 'default', name: 'Default', environments: config.environments },
+    ]
+  );
+}
+export function programConfig(config, id = 'default') {
+  const program = programList(config).find((item) => item.id === id);
+  if (!program) throw new Error('Invalid program.');
+  return { version: 2, environments: program.environments };
+}
 export function validateConfig(input) {
+  if (input?.version === 3) {
+    if (!Array.isArray(input.programs) || !input.programs.length)
+      throw new Error('At least one program is required.');
+    const ids = new Set(),
+      names = new Set();
+    const programs = input.programs.map((program) => {
+      if (
+        !program ||
+        typeof program.id !== 'string' ||
+        !/^[a-zA-Z0-9_-]+$/.test(program.id) ||
+        typeof program.name !== 'string' ||
+        !program.name.trim() ||
+        [...program.name].some(
+          (character) =>
+            character.codePointAt(0) < 32 || character.codePointAt(0) === 127,
+        )
+      )
+        throw new Error('Invalid program name or identity.');
+      const name = program.name.trim();
+      if (ids.has(program.id) || names.has(name.toLowerCase()))
+        throw new Error('Program names and identities must be unique.');
+      ids.add(program.id);
+      names.add(name.toLowerCase());
+      return {
+        id: program.id,
+        name,
+        environments: validateConfig({
+          version: 2,
+          environments: program.environments,
+        }).environments,
+      };
+    });
+    return { version: 3, programs };
+  }
   const config = migrateConfig(input);
   if (!config || config.version !== 2 || !Array.isArray(config.environments))
     throw new Error(
@@ -373,7 +419,9 @@ export function responseSummary(httpStatus, body) {
 export function exportConfiguration(config, includeKeys = false) {
   const exported = structuredClone(config);
   if (!includeKeys)
-    for (const env of exported.environments) {
+    for (const env of programList(exported).flatMap(
+      (program) => program.environments,
+    )) {
       env.edgeKey = '';
       env.purgeKey = '';
     }

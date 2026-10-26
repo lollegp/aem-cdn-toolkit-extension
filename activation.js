@@ -1,4 +1,4 @@
-import { httpsURL, matchPublicCountry } from './core.js';
+import { httpsURL, matchPublicCountry, programList } from './core.js';
 import { loadConfig } from './storage.js';
 const icons = (state) =>
   Object.fromEntries(
@@ -12,6 +12,16 @@ const neutralIcons = icons('neutral'),
 
 // Toolbar recognition is domain-wide. Page actions still use path-prefix validation.
 export function configuredSites(config, value) {
+  if (config.programs)
+    return programList(config).flatMap((program) =>
+      configuredSites({ environments: program.environments }, value).map(
+        (match) => ({
+          ...match,
+          program: program.id,
+          programName: program.name,
+        }),
+      ),
+    );
   let url;
   try {
     url = httpsURL(value);
@@ -62,6 +72,7 @@ export function startActivation(ready = Promise.resolve()) {
               ? matches
                   .map(
                     (match) =>
+                      (match.programName ? match.programName + ' · ' : '') +
                       match.environment +
                       (match.country
                         ? ' · ' + match.country

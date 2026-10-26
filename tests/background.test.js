@@ -562,3 +562,30 @@ test('Incognito purge never writes history for success, rejection or network fai
     chrome.storage.local.set = storageSet;
   }
 });
+
+test('Program actions use isolated keys and record program identity', async () => {
+  const original = local.config;
+  const environments = structuredClone(config.environments);
+  environments[0].edgeKey = 'program-edge';
+  environments[0].purgeKey = 'program-purge';
+  local.config = {
+    version: 3,
+    programs: [
+      { id: 'default', name: 'Default', environments: config.environments },
+      { id: 'second', name: 'Second', environments },
+    ],
+  };
+  try {
+    const missing = await send('purge');
+    assert.equal(missing.ok, false);
+    assert.match(missing.text, /program/i);
+    const result = await send('purge', { program: 'second' });
+    assert.equal(result.ok, true);
+    assert.equal(captured.init.headers['X-AEM-Edge-Key'], 'program-edge');
+    assert.equal(captured.init.headers['X-AEM-Purge-Key'], 'program-purge');
+    assert.equal(result.record.program, 'second');
+    assert.equal(result.record.programName, 'Second');
+  } finally {
+    local.config = original;
+  }
+});

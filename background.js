@@ -10,6 +10,8 @@ import {
   permissionOrigins,
   responseSummary,
   validateConfig,
+  programList,
+  programConfig,
 } from './core.js';
 import { loadConfig, loadSecrets, secureStorage } from './storage.js';
 let queue = Promise.resolve();
@@ -60,8 +62,12 @@ async function clearCredentials() {
 }
 function credentialIdentity(config) {
   return JSON.stringify(
-    config.environments
-      .map(({ name, publishUrl, countries, edgeKey, purgeKey }) => ({
+    programList(config)
+      .flatMap((program) =>
+        program.environments.map((env) => ({ ...env, program: program.id })),
+      )
+      .map(({ name, publishUrl, countries, edgeKey, purgeKey, program }) => ({
+        program,
         name,
         publishUrl,
         countries,
@@ -119,7 +125,12 @@ async function execute(message) {
         'Configuration changed. Reopen the popup before continuing.',
       );
   };
-  const config = await loadConfig();
+  const workspace = await loadConfig();
+  if (workspace.programs && !message.program)
+    throw new Error('Select a program.');
+  const programId = message.program || 'default';
+  const config = programConfig(workspace, programId);
+  const program = programList(workspace).find((item) => item.id === programId);
   const env = config.environments.find((e) => e.name === message.environment);
   if (!env) throw new Error('Invalid environment.');
   const policy = purgePolicy(env);
@@ -136,7 +147,9 @@ async function execute(message) {
   if (
     onPublish &&
     context &&
-    (context.environment !== env.name || context.country !== message.country)
+    ((context.program || 'default') !== programId ||
+      context.environment !== env.name ||
+      context.country !== message.country)
   )
     throw new Error(
       'This publish tab belongs to a different country or environment.',
@@ -168,7 +181,8 @@ async function execute(message) {
     throw new Error(
       'Grant access to the configured domains in Settings or the popup.',
     );
-  const secrets = (await loadSecrets(config))[env.name] || {};
+  const secrets =
+    (await loadSecrets(config, programId === 'default'))[env.name] || {};
   if (message.action === 'publish') {
     const headers = requestHeaders(secrets, page.forwardedHost);
     return serial(async () => {
@@ -201,6 +215,7 @@ async function execute(message) {
         const tabs =
           (await chrome.storage.session.get('publishTabs')).publishTabs || {};
         tabs[id] = {
+          program: programId,
           environment: env.name,
           country: page.country.code,
           forwardedHost: page.forwardedHost,
@@ -242,14 +257,16 @@ async function execute(message) {
       : ' See Purge activity.';
     const headers = requestHeaders(secrets, page.forwardedHost, request.mode);
     // Keep the environment quiet until its current purge request completes.
-    if (inFlight.has(env.name))
+    if (inFlight.has(programId + ':' + env.name))
       throw new Error(
         'A purge is already running for this environment. Check Purge activity.',
       );
-    inFlight.add(env.name);
+    inFlight.add(programId + ':' + env.name);
     const record = {
       id: crypto.randomUUID(),
       startedAt: new Date().toISOString(),
+      program: programId,
+      programName: program.name,
       environment: env.name,
       country: page.country.code,
       scope,
@@ -329,7 +346,7 @@ async function execute(message) {
       return { ok: false, text: final.error, record: final };
     } finally {
       clearTimeout(timer);
-      inFlight.delete(env.name);
+      inFlight.delete(programId + ':' + env.name);
     }
   }
   throw new Error('Unknown action.');

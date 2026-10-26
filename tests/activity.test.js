@@ -35,6 +35,7 @@ async function setup(records = []) {
       'activityStatus',
       'historySearch',
       'historyState',
+      'historyProgram',
     ].map((id) => [id, new Element()]),
   );
   const state = { records },
@@ -180,4 +181,41 @@ test('Failed activity clearing keeps records and shows an actionable error', asy
   await h.elements.clearHistory.listeners.click();
   assert.equal(h.state.records.length, 1);
   assert.equal(h.elements.activityStatus.textContent, 'Cannot clear activity');
+});
+
+test('Program filter isolates identical environments and combines with other filters', async () => {
+  const records = [
+    { program: 'one', programName: 'First', state: 'succeeded' },
+    { program: 'two', programName: 'Second', state: 'failed' },
+    { state: 'succeeded' },
+  ].map((record, index) => ({
+    ...record,
+    id: String(index),
+    environment: 'PROD',
+    country: 'US',
+    startedAt: new Date().toISOString(),
+  }));
+  const { elements, listeners, state } = await setup(records);
+  assert.deepEqual(
+    elements.historyProgram.children.map((option) => option.value),
+    ['', 'one', 'two', 'default'],
+  );
+  const badge = elements.history.children[0].children[0].children[0];
+  assert.equal(badge.className, 'program-badge');
+  assert.equal(badge.textContent, 'Program: First');
+  elements.historyProgram.value = 'two';
+  await elements.historyProgram.listeners.change();
+  assert.equal(elements.history.children.length, 1);
+  assert.match(elements.history.textContent, /Second/);
+  elements.historyState.value = 'succeeded';
+  await elements.historyState.listeners.change();
+  assert.match(elements.history.textContent, /No requests match/);
+  elements.historyState.value = '';
+  state.records.push({ ...records[0], id: 'new' });
+  await listeners.changed({ purgeHistory: {} }, 'local');
+  assert.equal(elements.historyProgram.value, 'two');
+  assert.equal(elements.history.children.length, 1);
+  elements.historyProgram.value = 'default';
+  await elements.historyProgram.listeners.change();
+  assert.match(elements.history.textContent, /Program: Default/);
 });
