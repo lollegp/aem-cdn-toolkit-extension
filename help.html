@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta
       name="description"
-      content="Meet AEM CDN Toolkit: manage environments, open authenticated publish pages and control AEM CDN cache from your Chrome toolbar."
+      content="Meet AEM CDN Toolkit: manage multiple programs, open authenticated publish pages and control AEM CDN cache from your Chrome toolbar."
     />
     <meta name="theme-color" content="#075e57" />
-    <title>AEM CDN Toolkit · Your page. Your environment.</title>
+    <title>AEM CDN Toolkit · Your programs. Your page.</title>
     <link rel="icon" href="icons/toolkit-neutral-48.png" />
     <link rel="stylesheet" href="site.css" />
   </head>
@@ -20,6 +20,7 @@
         <span>AEM CDN <strong>Toolkit</strong></span>
       </a>
       <nav aria-label="Main">
+        <a href="#whats-new">New in 2.7</a>
         <a href="#tour">The toolkit</a>
         <a href="#setup">Get started</a>
         <a href="privacy.html">Privacy</a>
@@ -35,11 +36,11 @@
         <div class="hero-copy">
           <p class="eyebrow">FOR THE PEOPLE BEHIND THE PAGE</p>
           <h1 id="hero-title">
-            Your environments.<br />Your page.<br /><em>One toolkit.</em>
+            Your programs.<br />Your page.<br /><em>One toolkit.</em>
           </h1>
           <p class="intro">
             From public page to AEM publish. From stale cache to a purge
-            request. Keep your everyday AEM actions right in Chrome.
+            request. Keep every program’s AEM actions right in Chrome.
           </p>
           <div class="hero-actions">
             <a class="button" href="#setup"
@@ -51,12 +52,13 @@
           </div>
         </div>
         <aside class="hero-note" aria-label="Extension at a glance">
-          <span class="edition">CHROME EXTENSION / 2.6</span>
+          <span class="edition">CHROME EXTENSION / 2.7.0</span>
           <p>Less switching.<br />More doing.</p>
           <ul>
             <li>Page &amp; environment purge</li>
             <li>Authenticated publish access</li>
-            <li>Country mappings &amp; activity</li>
+            <li>Multiple programs &amp; automatic detection</li>
+            <li>Program activity filters &amp; light/dark themes</li>
           </ul>
           <span class="compatibility">Chrome 120+ · Manifest V3</span>
         </aside>
@@ -76,8 +78,8 @@
       </figure>
       <div class="principles" aria-label="Built for your workflow">
         <p>
-          <strong>Your environments</strong
-          ><span>Names, countries and controls you choose.</span>
+          <strong>Your programs</strong
+          ><span>Independent environments, keys and controls.</span>
         </p>
         <p>
           <strong>Your browser</strong
@@ -88,6 +90,54 @@
           ><span>Requests go directly to configured AEM hosts.</span>
         </p>
       </div>
+      <section
+        id="whats-new"
+        class="release-highlights"
+        aria-labelledby="release-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">NEW IN VERSION 2.7.0</p>
+          <h2 id="release-title">Every program. The right context.</h2>
+          <p>
+            Separate your projects, find the right configuration automatically,
+            and keep every request identifiable.
+          </p>
+        </div>
+        <div class="release-grid">
+          <article class="card">
+            <span class="step-number">01 / PROGRAMS</span>
+            <h3>A home for each program.</h3>
+            <p>
+              Add, rename or delete programs with independent environments,
+              country mappings, keys and purge policies. Duplicate a setup
+              without copying its keys.
+            </p>
+          </article>
+          <article class="card">
+            <span class="step-number">02 / AUTOMATIC DETECTION</span>
+            <h3>Follow the page you visit.</h3>
+            <p>
+              The toolbar and popup check URLs across every program, even when
+              another program was last selected. Overlapping matches require
+              your choice.
+            </p>
+          </article>
+          <article class="card">
+            <span class="step-number">03 / ACTIVITY &amp; APPEARANCE</span>
+            <h3>See which program. Choose your theme.</h3>
+            <p>
+              Filter purge activity by program and status. Program badges label
+              each log. Choose System, Light or Dark in Settings; System follows
+              your computer by default.
+            </p>
+          </article>
+        </div>
+        <p class="scope-note">
+          Upgrading? Existing settings appear under Default. Import and export
+          cover all programs; exports omit keys by default. Older activity is
+          labeled Default.
+        </p>
+      </section>
       <section id="tour" class="tour" aria-labelledby="tour-title">
         <div class="section-heading">
           <p class="eyebrow">THREE PARTS. ONE WORKFLOW.</p>
@@ -104,8 +154,8 @@
             </p>
             <p>
               A green toolbar dot identifies configured domains. The popup
-              resolves the environment and country, with an explicit choice when
-              multiple mappings match.
+              detects the program, environment and country across all saved
+              programs, with an explicit choice when multiple mappings match.
             </p>
             <a class="text-link" href="#purge-results"
               >Understand purge results ↗</a
@@ -132,9 +182,9 @@
             <span class="step-number">02 / ENVIRONMENT SETTINGS</span>
             <h3>Many countries.<br />A clear configuration.</h3>
             <p>
-              Create and reorder named environments. Map public sites and path
-              prefixes to a publish origin, with credentials and preferences set
-              per environment.
+              Create programs with independent, named environments. Map public
+              sites and path prefixes to a publish origin, with credentials and
+              preferences set per environment.
             </p>
             <p>
               Choose page and full-purge confirmations independently. Full purge
@@ -166,13 +216,14 @@
             <span class="step-number">03 / PURGE ACTIVITY</span>
             <h3>Send a request.<br />Keep the outcome.</h3>
             <p>
-              Review the latest 100 requests in your browser. Search by
-              environment, country or path, filter by status, and inspect
-              response details and request IDs.
+              Review the latest 100 requests in your browser. Search by program,
+              environment, country or path, filter by program and status, and
+              inspect response details and request IDs.
             </p>
             <p>
-              Activity distinguishes succeeded, accepted, failed and unknown
-              outcomes. New records omit URL query strings and fragments.
+              Program badges identify each request. Activity distinguishes
+              succeeded, accepted, failed and unknown outcomes. New records omit
+              URL query strings and fragments.
             </p>
             <a class="text-link" href="#support"
               >Find help when you need it ↗</a
@@ -244,9 +295,10 @@
             <h3>Make it yours</h3>
             <p>
               Pin the extension. Open its popup, choose
-              <strong>Settings</strong>, then <strong>Add environment</strong>.
-              Enter a unique name, HTTPS publish origin, public country URLs and
-              any publish path prefixes.
+              <strong>Settings</strong>. Use the Default program or choose
+              <strong>Add program</strong>, then
+              <strong>Add environment</strong>. Enter a unique name, HTTPS
+              publish origin, public country URLs and any publish path prefixes.
             </p>
           </li>
           <li>
@@ -262,8 +314,9 @@
             <h3>Open a matching page</h3>
             <p>
               Visit a configured public site and open the popup. Select the
-              environment and country if needed. Validate publish access and
-              page purge in a test environment before using production.
+              program, environment and country if needed. Validate publish
+              access and page purge in a test environment before using
+              production.
             </p>
           </li>
         </ol>
@@ -329,12 +382,31 @@
           <h2 id="support-title">A little help, when you need it.</h2>
         </div>
         <details>
+          <summary>How do programs and automatic selection work?</summary>
+          <p>
+            Each program has its own environments and credentials. Settings
+            remembers your selection, while the popup independently checks all
+            programs for the current URL. If several programs match, select one
+            before acting. Duplicated programs never copy saved keys.
+          </p>
+        </details>
+        <details>
+          <summary>How do I change the theme or filter activity?</summary>
+          <p>
+            Choose System, Light or Dark under Appearance in Settings. System is
+            the default and follows your computer. In Purge activity, select a
+            Program and Status or search by program, environment, country or
+            path. Each request shows a program badge.
+          </p>
+        </details>
+        <details>
           <summary>How do I back up or clear my configuration?</summary>
           <p>
             Import, export and reset are at the bottom of Settings. Exports omit
             keys by default; select “Include saved keys” only for a private
-            backup. Reset clears environments, keys and active publish headers
-            but retains activity. Activity has its own clear control.
+            backup. Import replaces all programs. Reset clears programs,
+            environments, keys and active publish headers but retains activity.
+            Activity has its own clear control.
           </p>
         </details>
         <details>
@@ -373,7 +445,7 @@
       </section>
     </main>
     <footer>
-      <span>AEM CDN Toolkit <span class="footer-version">/ 2.6</span></span>
+      <span>AEM CDN Toolkit <span class="footer-version">/ 2.7.0</span></span>
       <p>
         Independent community tool. Not affiliated with or endorsed by Adobe or
         Google.

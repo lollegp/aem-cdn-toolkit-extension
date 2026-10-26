@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Your environments. Your page. One toolkit.</strong></p>
 <p align="center">Manage Adobe AEM CDN cache and authenticated publish access without leaving your browser.</p>
-<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.6.0 &nbsp; · &nbsp; No runtime dependencies</p>
+<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.7.0 &nbsp; · &nbsp; No runtime dependencies</p>
 
 <p align="center">
   <a href="#get-started">Get started</a> &nbsp; / &nbsp;
@@ -104,7 +104,7 @@ npm run package
 
 `check` runs ESLint, Prettier and the Node test suite. `package` also builds and verifies:
 
-- `dist/aem-cdn-toolkit-2.6.0.zip` and its SHA-256 checksum.
+- `dist/aem-cdn-toolkit-2.7.0.zip` and its SHA-256 checksum.
 - `dist/site/`, the static presentation and privacy site with local artwork.
 
 Automated tests use simulated browser APIs and synthetic credentials. They send no live purge requests; real Chrome and AEM verification remain separate checks.

@@ -13,6 +13,18 @@
 
 Existing version 1 configurations are migrated when each environment has one publish origin. Country labels are initially generated as SITE1, SITE2 and so on. Rename them to your country codes. Generic CDN API settings are replaced by the direct AEM CDN integration. Keys can now be configured directly at environment level in JSON and remain available after restart.
 
+## Programs, appearance and activity
+
+Settings opens with the selected program. Existing configurations appear under **Default**. Use **Add program**, **Rename**, **Duplicate without keys**, or **Delete program** to manage independent configurations. Every program contains its own environments, mappings, credentials and purge policies. Environment names must be unique within a program. Keep at least one program.
+
+The toolbar and popup scan URLs across all programs, independently of the last Settings selection. Unique matches select the program automatically. Overlapping matches require an explicit program or environment choice before page actions. Publish context and purge activity retain program identity.
+
+Choose **System**, **Light** or **Dark** under **Appearance**. System is the default and follows computer settings. Changes save automatically and apply to Settings and the popup.
+
+In **Purge activity**, combine **Program**, **Status** and search filters. Program badges identify every request; old logs appear under Default. Programs with recorded activity remain available in the filter even if their configuration was deleted. The filter retains its selection during refresh while that program has records.
+
+Import, export, reset and saved-key clearing apply across all programs. Older version 1 and 2 imports are accepted as Default; multi-program exports use version 3. Import replaces the complete configuration rather than merging programs.
+
 ## Incognito browsing
 
 Open `chrome://extensions`, select **Details** for AEM CDN Toolkit, and turn on **Allow in Incognito**. Reload the extension first when upgrading an unpacked installation. Chrome requires this opt-in; the extension cannot enable it for you.
@@ -225,7 +237,7 @@ The PNG icons are packaged with the extension and require no build step. When up
 
 ## Release package and website
 
-Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.6.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
+Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.7.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
 
 The bundled [help page](../help.html) and [privacy policy](../privacy.html) also form the public site at https://lollegp.github.io/aem-cdn-toolkit-extension/.
 

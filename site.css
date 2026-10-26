@@ -575,3 +575,29 @@ footer {
     padding-top: 48px;
   }
 }
+
+.release-highlights {
+  margin: 0 0 72px;
+}
+.release-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.release-grid .card {
+  border-color: var(--line);
+}
+.release-grid h3 {
+  font-size: 21px;
+  line-height: 1.3;
+  margin: 16px 0;
+}
+.release-grid p {
+  font-size: 14px;
+  color: var(--muted);
+}
+@media (max-width: 800px) {
+  .release-grid {
+    grid-template-columns: 1fr;
+  }
+}

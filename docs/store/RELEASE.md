@@ -1,8 +1,17 @@
-# Chrome Web Store release: 2.6.0
+# Chrome Web Store release: 2.7.0
+
+## What is new in 2.7.0
+
+- Manage multiple programs with independent environments, mappings, keys and purge policies.
+- Detect the current URL across every program, regardless of the last Settings selection; resolve overlapping matches explicitly.
+- Duplicate program settings without copying authentication keys.
+- Filter purge activity by program and status, with a visible program badge on each request.
+- Choose System, Light or Dark appearance; System follows the computer by default.
+- Preserve older configurations as Default and support full-workspace JSON import/export.
 
 ## Prepared locally
 
-- Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.6.0.zip`.
+- Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.7.0.zip`.
 - Empty configuration on first install. No keys, organization domains or sample environments in the runtime package.
 - Local help and privacy pages, plus a GitHub Pages build and automatic cross-repository publishing workflow.
 - 128×128 store icon: `icons/toolkit-neutral-128.png`.
@@ -26,12 +35,15 @@
 
 AEM CDN Toolkit brings your configured AEM environments into the current page's Chrome popup.
 
+- Manage independent programs; duplicate settings without copying keys.
 - Create and reorder environments with public country mappings and a shared AEM publish origin.
-- Recognize configured domains with a green toolbar indicator.
+- Automatically recognize configured domains across all programs with a green toolbar indicator.
 - Open authenticated publish pages in a new tab by default, or a new window per environment.
 - Add a random cache-busting query parameter to the current page.
 - Send soft or hard page purge requests. Enable full-environment purge explicitly where needed.
 - Configure independent checkbox confirmation for page and full purge.
+- Filter local purge activity by program and status; identify requests by program badge.
+- Choose System, Light or Dark appearance, following the computer theme by default.
 - Search local purge activity and inspect response status and request IDs.
 - Import and export JSON configurations. Exports omit keys unless you explicitly include them.
 
@@ -89,7 +101,18 @@ Permission justifications:
 - [Program policies](https://developer.chrome.com/docs/webstore/program-policies/policies)
 - [Incognito manifest setting](https://developer.chrome.com/docs/extensions/reference/manifest/incognito)
 
-## Incognito verification for 2.6.0
+## New-feature verification for 2.7.0
+
+- Upgrade an existing installation and confirm its settings appear in Default.
+- Add two programs with repeated environment names and different hosts/keys. Verify URL detection selects the matching program even when another is selected in Settings.
+- Configure overlapping hosts and verify explicit selection is required.
+- Duplicate a program and verify both authentication key fields are empty.
+- Verify program creation, renaming, deletion, import/export, reset and stale-save protection.
+- Filter activity by program, search and status; check program badges, legacy Default records and selection preservation on refresh.
+- Verify System follows OS appearance changes and explicit Light/Dark choices persist across popup and Settings, including keyboard focus and readable status colors.
+- Capture fresh actual screenshots showing programs, appearance and activity badges. Existing illustrative screenshots predate this release.
+
+## Incognito verification for 2.7.0
 
 Automated tests cover regular/incognito publish tab and window options, tab-scoped header rules, private purge outcomes without persistent history writes, and management-page routing. Complete these real-Chrome checks before submitting:
 
