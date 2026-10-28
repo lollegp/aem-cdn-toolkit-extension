@@ -9,6 +9,7 @@
 <p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.8.0 &nbsp; · &nbsp; No runtime dependencies</p>
 
 <p align="center">
+  <a href="https://chromewebstore.google.com/detail/aem-cdn-toolkit/jjmekemjgldpgpkmhcgbaejhalplafkd">Add to Chrome</a> &nbsp; / &nbsp;
   <a href="#get-started">Get started</a> &nbsp; / &nbsp;
   <a href="docs/USAGE.md">Usage reference</a> &nbsp; / &nbsp;
   <a href="help.html">Help & presentation</a> &nbsp; / &nbsp;
@@ -60,23 +61,31 @@ Import and export cover all programs. Existing version 1 and version 2 configura
 
 Open publish, add a cache parameter or purge the mapped page from one popup. Full-environment purge is disabled for new environments.
 
-![Illustrative page toolkit with environment and country selection](docs/imgs/popup_1280x800.png)
+<img src="docs/imgs/release-2.8.0/popup-preview-390x800.png" width="390" height="800" alt="Version 2.8.0 popup with program selection and Preview service actions" />
+
+_Preview popup captured with fictional active-tab context. No live AEM request was sent._
 
 ### 02 / Configure once, work across countries
 
 Name and reorder environments, map public sites to publish paths, and choose credentials and purge controls per environment. Export without keys by default.
 
-![Illustrative environment settings with country mappings](docs/imgs/environment_settings_1280x800.png)
+![Version 2.8.0 Settings with program management and CDN setup](docs/imgs/release-2.8.0/settings-light-1280x800.png)
 
 ### 03 / Keep the result in view
 
 Review recent requests by environment, country, path and outcome. An accepted request is distinct from a confirmed successful response; unknown outcomes need checking before a retry.
 
-![Illustrative purge activity with request outcomes](docs/imgs/purge_activity_1280x800.png)
+![Version 2.8.0 activity with program filters and response details](docs/imgs/release-2.8.0/activity-1280x800.png)
+
+_Settings and activity screenshots use fictional configuration and history. See [capture details](docs/imgs/release-2.8.0/README.md)._
 
 ## Get started
 
-You need **Chrome 120 or later**, an **AEM as a Cloud Service publish environment**, and suitable **edge and purge keys**. The toolkit does not create AEM services or issue credentials.
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/aem-cdn-toolkit/jjmekemjgldpgpkmhcgbaejhalplafkd), then pin the extension and open **Settings**.
+
+You need **Chrome 120 or later**, an **AEM as a Cloud Service environment**, and a **purge key** for purging. BYO CDN also requires an **edge key**. The toolkit does not create AEM services or issue credentials.
+
+For local development or an unpacked installation:
 
 1. Clone or download this repository and extract it if needed.
 2. Open `chrome://extensions` and enable **Developer mode**.
