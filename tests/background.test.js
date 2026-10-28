@@ -589,3 +589,136 @@ test('Program actions use isolated keys and record program identity', async () =
     local.config = original;
   }
 });
+
+test('Standard worker targets public domain, omits BYO headers and rejects publish', async () => {
+  const original = local.config;
+  const standard = structuredClone(config);
+  standard.environments[0].cdnMode = 'standard';
+  standard.environments[0].publishUrl = '';
+  standard.environments[0].edgeKey = '';
+  standard.environments[0].purgeKey = 'standard-purge';
+  local.config = standard;
+  try {
+    const blocked = await send('publish');
+    assert.equal(blocked.ok, false);
+    assert.match(blocked.text, /unavailable.*Standard/);
+    const page = await send('purge', {
+      expectedTarget: currentURL.split('#')[0].replace('?_cacheBust=123', ''),
+      expectedMode: 'soft',
+      expectedForwardedHost: '',
+    });
+    assert.equal(page.ok, true, page.text);
+    assert.equal(captured.init.headers['X-AEM-Edge-Key'], undefined);
+    assert.equal(captured.init.headers['X-Forwarded-Host'], undefined);
+    assert.equal(captured.init.headers['X-AEM-Purge-Key'], 'standard-purge');
+    assert.equal(page.record.cdnMode, 'standard');
+    const all = await send('purgeAll', {
+      expectedTarget: new URL(currentURL).origin + '/',
+      expectedMode: 'all',
+      expectedForwardedHost: '',
+    });
+    assert.equal(all.ok, true, all.text);
+    assert.equal(captured.init.headers['X-AEM-Purge'], 'all');
+  } finally {
+    local.config = original;
+  }
+});
+
+test('Purge responses retain formatted response body in activity', async () => {
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    status: 400,
+    headers: { get: () => 'application/json' },
+    text: async () =>
+      JSON.stringify({
+        status: 'error',
+        message: 'Invalid purge request',
+        token: 'private-token',
+      }),
+  });
+  try {
+    const result = await send('purge');
+    assert.equal(result.ok, false);
+    assert.match(result.record.responseBody, /Invalid purge request/);
+    assert.doesNotMatch(result.record.responseBody, /private-token/);
+    assert.equal(
+      local.purgeHistory[0].responseBody,
+      result.record.responseBody,
+    );
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
+});
+
+test('Preview actions use preview credentials, scope and saved context', async () => {
+  const original = local.config;
+  const value = structuredClone(config);
+  const env = value.environments[0];
+  env.previewUrl = 'https://preview-dev.example.invalid/';
+  env.previewEdgeKey = 'preview-edge';
+  env.previewPurgeKey = 'preview-purge';
+  env.countries[0].service = 'preview';
+  local.config = value;
+  const overrides = {
+    country: 'US@preview',
+    service: 'preview',
+    expectedTarget: 'https://preview-dev.example.invalid/ports',
+    expectedMode: 'soft',
+    expectedForwardedHost: 'us.example.invalid',
+  };
+  try {
+    const result = await send('purge', overrides);
+    assert.equal(result.ok, true, result.text);
+    assert.equal(captured.init.headers['X-AEM-Edge-Key'], 'preview-edge');
+    assert.equal(captured.init.headers['X-AEM-Purge-Key'], 'preview-purge');
+    assert.equal(result.record.service, 'preview');
+    const all = await send('purgeAll', {
+      ...overrides,
+      expectedTarget: 'https://preview-dev.example.invalid/',
+      expectedMode: 'all',
+    });
+    assert.equal(all.ok, true, all.text);
+    const nav = await send('publish', {
+      ...overrides,
+      expectedTarget: currentURL.replace(
+        new URL(currentURL).origin,
+        'https://preview-dev.example.invalid',
+      ),
+      expectedMode: 'tab',
+    });
+    assert.equal(nav.ok, true, nav.text);
+    assert.equal(session.publishTabs[50].service, 'preview');
+    assert.equal(session.publishTabs[50].country, 'US@preview');
+    env.previewUsePublishKeys = true;
+    const reused = await send('purge', overrides);
+    assert.equal(reused.ok, true, reused.text);
+    assert.equal(
+      captured.init.headers['X-AEM-Edge-Key'],
+      env.edgeKey || session.secrets?.DEV?.edgeKey,
+    );
+  } finally {
+    local.config = original;
+  }
+});
+
+test('Oversized streamed JSON is omitted and never implies application acceptance', async () => {
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        status: 'error',
+        token: 'private-response-token',
+        padding: 'x'.repeat(20000),
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  try {
+    const result = await send('purge');
+    assert.equal(result.record.state, 'unknown');
+    assert.doesNotMatch(result.record.responseBody, /private-response-token/);
+    assert.match(result.record.responseBody, /omitted/i);
+    assert.match(result.text, /not confirmed/);
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
+});

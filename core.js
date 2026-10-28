@@ -1,7 +1,12 @@
 export function createEnvironment(name) {
   return {
     name,
+    cdnMode: 'byo',
     publishUrl: '',
+    previewUrl: '',
+    previewEdgeKey: '',
+    previewPurgeKey: '',
+    previewUsePublishKeys: false,
     edgeKey: '',
     purgeKey: '',
     countries: [],
@@ -62,19 +67,54 @@ export function matchPublicCountry(env, value) {
     );
   return { url, ...matches[0] };
 }
+export function mappingId(country) {
+  return country.service === 'preview'
+    ? country.code + '@preview'
+    : country.code;
+}
+export function serviceOrigin(env, service = 'publish') {
+  return service === 'preview' ? env.previewUrl : env.publishUrl;
+}
+export function serviceSecrets(env, publishSecrets, service) {
+  if (service !== 'preview' || env.previewUsePublishKeys) return publishSecrets;
+  return {
+    edgeKey: env.previewEdgeKey || '',
+    purgeKey: env.previewPurgeKey || '',
+  };
+}
 function publishBase(env, country) {
-  const base = baseURL(env.publishUrl);
+  const origin = serviceOrigin(env, country.service);
+  if (!origin)
+    throw new Error(
+      'Configure the ' + (country.service || 'publish') + ' service URL.',
+    );
+  const base = baseURL(origin);
   base.pathname = country.publishPathPrefix || '/';
   return base;
 }
 export function resolvePage(env, value, countryCode) {
   const url = httpsURL(value);
+  if (env.cdnMode === 'standard') {
+    const { country } = matchPublicCountry(env, value);
+    if (countryCode && mappingId(country) !== countryCode)
+      throw new Error(
+        'The selected country does not match the current public URL.',
+      );
+    return { country, publicUrl: url, publishUrl: null, forwardedHost: '' };
+  }
   let country, tail;
-  if (env.publishUrl && url.origin === baseURL(env.publishUrl).origin) {
+  const sourceService = ['publish', 'preview'].find(
+    (service) =>
+      serviceOrigin(env, service) &&
+      url.origin === baseURL(serviceOrigin(env, service)).origin,
+  );
+  if (sourceService) {
     if (!countryCode)
       throw new Error('Select a country for this shared publish URL.');
-    country = env.countries.find((c) => c.code === countryCode);
+    country = env.countries.find((c) => mappingId(c) === countryCode);
     if (!country) throw new Error('Unknown country.');
+    if ((country.service || 'publish') !== sourceService)
+      throw new Error('Selected country belongs to a different service.');
     tail = suffix(url, publishBase(env, country));
     if (tail === null)
       throw new Error('This publish path does not match the selected country.');
@@ -82,7 +122,7 @@ export function resolvePage(env, value, countryCode) {
     const found = matchPublicCountry(env, value);
     country = found.country;
     tail = found.tail;
-    if (countryCode && country.code !== countryCode)
+    if (countryCode && mappingId(country) !== countryCode)
       throw new Error(
         'The selected country does not match the current public URL.',
       );
@@ -95,7 +135,13 @@ export function resolvePage(env, value, countryCode) {
   publishUrl.pathname = prefix(publishUrl.pathname) + (tail || '/');
   publishUrl.search = url.search;
   publishUrl.hash = url.hash;
-  return { country, publicUrl, publishUrl, forwardedHost: publicUrl.host };
+  return {
+    country,
+    service: country.service || 'publish',
+    publicUrl,
+    publishUrl,
+    forwardedHost: publicUrl.host,
+  };
 }
 export function bypassURL(value, param, randomValue = crypto.randomUUID()) {
   const url = httpsURL(value);
@@ -122,7 +168,11 @@ export function purgeRequest(env, page, scope) {
   if (scope === 'all' && !purgePolicy(env).fullPurgeEnabled)
     throw new Error('Full environment purge is disabled for ' + env.name + '.');
   const url =
-    scope === 'all' ? baseURL(env.publishUrl) : new URL(page.publishUrl);
+    env.cdnMode === 'standard'
+      ? new URL(scope === 'all' ? page.publicUrl.origin + '/' : page.publicUrl)
+      : scope === 'all'
+      ? baseURL(serviceOrigin(env, page.service))
+      : new URL(page.publishUrl);
   url.searchParams.delete(env.cacheParam);
   url.hash = '';
   return { url: url.href, mode: scope === 'all' ? 'all' : env.purgeMode };
@@ -141,17 +191,27 @@ export function validateHeaders(headers) {
   }
   return headers;
 }
-export function requestHeaders(secrets, forwardedHost, purgeMode) {
-  if (!secrets?.edgeKey)
+export function requestHeaders(
+  secrets,
+  forwardedHost,
+  purgeMode,
+  cdnMode = 'byo',
+) {
+  if (!['byo', 'standard'].includes(cdnMode))
+    throw new Error('Invalid CDN setup.');
+  if (cdnMode === 'byo' && !secrets?.edgeKey)
     throw new Error(
       'Configure edgeKey for this environment in config.json or Settings.',
     );
-  const headers = {
-    'X-AEM-Edge-Key': secrets.edgeKey,
-    'X-Forwarded-Host': forwardedHost,
-  };
+  const headers =
+    cdnMode === 'standard'
+      ? {}
+      : {
+          'X-AEM-Edge-Key': secrets.edgeKey,
+          'X-Forwarded-Host': forwardedHost,
+        };
   if (purgeMode) {
-    if (!secrets.purgeKey)
+    if (!secrets?.purgeKey)
       throw new Error(
         'Configure purgeKey for this environment in config.json or Settings.',
       );
@@ -278,10 +338,16 @@ export function validateConfig(input) {
     ])
       if (e[field] !== undefined && typeof e[field] !== 'boolean')
         throw new Error(field + ' must be a boolean.');
-    if (typeof e.publishUrl !== 'string')
+    const cdnMode = e.cdnMode ?? 'byo';
+    if (!['byo', 'standard'].includes(cdnMode))
+      throw new Error('CDN setup must be standard or byo.');
+    if (
+      typeof e.publishUrl !== 'string' &&
+      !(cdnMode === 'standard' && e.publishUrl === undefined)
+    )
       throw new Error('Invalid publish URL.');
     let publishUrl = '';
-    if (e.publishUrl) {
+    if (cdnMode === 'byo' && e.publishUrl) {
       const u = baseURL(e.publishUrl);
       if (u.pathname !== '/')
         throw new Error(
@@ -294,24 +360,53 @@ export function validateConfig(input) {
       publishOrigins.add(u.origin);
       publishUrl = u.origin + '/';
     }
+    let previewUrl = '';
+    if (e.previewUrl !== undefined && typeof e.previewUrl !== 'string')
+      throw new Error('Invalid preview URL.');
+    if (cdnMode === 'byo' && e.previewUrl) {
+      const u = baseURL(e.previewUrl);
+      if (u.pathname !== '/' || publishOrigins.has(u.origin))
+        throw new Error('Preview origin must be unique and contain no path.');
+      publishOrigins.add(u.origin);
+      previewUrl = u.origin + '/';
+    }
+    if (
+      e.previewUsePublishKeys !== undefined &&
+      typeof e.previewUsePublishKeys !== 'boolean'
+    )
+      throw new Error('Preview key reuse must be a boolean.');
+    for (const key of ['previewEdgeKey', 'previewPurgeKey']) {
+      if (e[key] !== undefined && typeof e[key] !== 'string')
+        throw new Error('Preview keys must be strings.');
+      if (e[key]) validateHeaders({ [key]: e[key] });
+    }
     if (!Array.isArray(e.countries) || e.countries.length > 100)
       throw new Error('Invalid country mappings.');
     const codes = new Set(),
       bases = new Set();
     const countries = e.countries.map((c) => {
+      const service = c.service ?? 'publish';
+      if (!['publish', 'preview'].includes(service))
+        throw new Error('Mapping service must be publish or preview.');
+      if (service === 'preview' && (cdnMode !== 'byo' || !previewUrl))
+        throw new Error('Preview mapping requires a BYO preview service URL.');
       if (
         typeof c.code !== 'string' ||
         !/^[A-Z0-9_]{2,16}$/.test(c.code) ||
-        codes.has(c.code)
+        codes.has(service + '/' + c.code)
       )
         throw new Error('Country codes must be unique uppercase identifiers.');
-      codes.add(c.code);
+      codes.add(service + '/' + c.code);
       const u = baseURL(c.publicBaseUrl);
       const normalized = u.origin + prefix(u.pathname);
       if (bases.has(normalized))
         throw new Error('Duplicate public country URL.');
       bases.add(normalized);
-      if (publishUrl && u.origin === baseURL(publishUrl).origin)
+      if (
+        [publishUrl, previewUrl]
+          .filter(Boolean)
+          .some((origin) => u.origin === baseURL(origin).origin)
+      )
         throw new Error('Public and publish origins must differ.');
       const p = c.publishPathPrefix || '/';
       if (
@@ -323,9 +418,18 @@ export function validateConfig(input) {
         !/^[\x21-\x7e]+$/.test(p)
       )
         throw new Error('Invalid publish path prefix.');
-      return { code: c.code, publicBaseUrl: u.href, publishPathPrefix: p };
+      return {
+        code: c.code,
+        ...(service === 'preview' ? { service } : {}),
+        publicBaseUrl: u.href,
+        publishPathPrefix: p,
+      };
     });
-    if (countries.length && !publishUrl)
+    if (
+      cdnMode === 'byo' &&
+      countries.some((country) => country.service !== 'preview') &&
+      !publishUrl
+    )
       throw new Error('Configure the environment publish URL first.');
     const edgeKey = e.edgeKey ?? '',
       purgeKey = e.purgeKey ?? '';
@@ -338,9 +442,15 @@ export function validateConfig(input) {
     );
     return {
       name,
+      cdnMode,
       publishUrl,
+      previewUrl,
+      previewEdgeKey: cdnMode === 'byo' ? e.previewEdgeKey || '' : '',
+      previewPurgeKey: cdnMode === 'byo' ? e.previewPurgeKey || '' : '',
+      previewUsePublishKeys:
+        cdnMode === 'byo' && (e.previewUsePublishKeys ?? false),
       publishOpenMode: e.publishOpenMode ?? 'tab',
-      edgeKey,
+      edgeKey: cdnMode === 'standard' ? '' : edgeKey,
       purgeKey,
       countries,
       cacheParam: e.cacheParam,
@@ -353,6 +463,7 @@ export function validateConfig(input) {
 export function permissionOrigins(env) {
   const urls = env.countries.map((c) => c.publicBaseUrl);
   if (env.publishUrl) urls.push(env.publishUrl);
+  if (env.previewUrl) urls.push(env.previewUrl);
   return [
     ...new Set(
       urls.map((value) => {
@@ -394,7 +505,37 @@ export function publishRule(tabId, url, headers) {
     },
   };
 }
-// Provider responses are reduced to safe fields. Raw bodies and credentials are never logged.
+// Response previews are bounded and redact credentials before persistence.
+export function responseLog(text, secrets = []) {
+  const redact = (value) => {
+    for (const secret of secrets
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length))
+      value = value.split(secret).join('[REDACTED]');
+    return value;
+  };
+  let result;
+  try {
+    result = JSON.stringify(
+      JSON.parse(text),
+      (key, value) => {
+        if (/key|token|secret|password|authorization|cookie/i.test(key))
+          return '[REDACTED]';
+        return typeof value === 'string' ? redact(value) : value;
+      },
+      2,
+    );
+  } catch {
+    result = /^\s*(?:\[|\{)/.test(String(text))
+      ? '[Response omitted: incomplete or invalid JSON.]'
+      : redact(String(text));
+  }
+  result = redact(result);
+  return result.length > 16384
+    ? result.slice(0, 16384) + '\n[Response truncated]'
+    : result;
+}
+// Classification uses a small set of provider fields independently of the preview.
 export function responseSummary(httpStatus, body) {
   const status =
     typeof body?.status === 'string' ? body.status.toLowerCase() : '';
@@ -424,6 +565,8 @@ export function exportConfiguration(config, includeKeys = false) {
     )) {
       env.edgeKey = '';
       env.purgeKey = '';
+      env.previewEdgeKey = '';
+      env.previewPurgeKey = '';
     }
   return exported;
 }

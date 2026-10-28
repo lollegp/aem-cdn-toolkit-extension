@@ -6,7 +6,7 @@
 
 <p align="center"><strong>Your environments. Your page. One toolkit.</strong></p>
 <p align="center">Manage Adobe AEM CDN cache and authenticated publish access without leaving your browser.</p>
-<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.7.0 &nbsp; · &nbsp; No runtime dependencies</p>
+<p align="center"><strong>Chrome 120+</strong> &nbsp; · &nbsp; Manifest V3 &nbsp; · &nbsp; v2.8.0 &nbsp; · &nbsp; No runtime dependencies</p>
 
 <p align="center">
   <a href="#get-started">Get started</a> &nbsp; / &nbsp;
@@ -34,9 +34,21 @@ Open a configured public page, select its environment and country, and act from 
 
 A green toolbar dot identifies a configured domain. It does not confirm credentials or CDN connectivity.
 
+See [2.8.0 release notes](CHANGELOG.md) and the [store submission guide](docs/store/RELEASE.md).
+
+## Standard and BYO CDN setups
+
+Choose **CDN setup** per environment. **Standard Adobe CDN** targets domains mapped in Cloud Manager, requires a purge key for purging, and sends no edge-key or forwarded-host headers. Publish navigation is hidden in this mode. **BYO customer CDN** retains authenticated publish-origin access and both routing headers. Existing configurations default to BYO.
+
+Standard page purges preserve the public URL path; full purge targets the public origin and affects the entire AEM service, not just that country or domain. See [setup details and Adobe references](docs/USAGE.md#cdn-setup).
+
+## BYO preview service
+
+BYO environments can configure a separate **Preview URL** and preview edge/purge keys. Each domain mapping selects **Service: Publish or Preview**, so the visited URL determines the target service automatically. Enable **Use publish keys for preview** only when both services use the same credentials. Existing mappings remain Publish; Standard mode does not expose preview configuration. Activity and confirmations identify the selected service. See [preview setup](docs/USAGE.md#byo-preview-service).
+
 ## Programs
 
-Use **Settings → Program** to add, rename, duplicate, or delete programs. Each program contains independent environments, country mappings, keys, and purge policies. Existing configurations appear in the **Default** program. Duplication copies settings without secret keys.
+In the **Settings** tab, select a program above environments and open **Manage** to add, rename, duplicate, or delete programs. The popup has its program selector at the top-right. Each program contains independent environments, country mappings, keys, and purge policies. Existing configurations appear in the **Default** program. Duplication copies settings without secret keys.
 
 The popup and toolbar detect configured domains across every program, regardless of the program last selected in Settings. A unique match selects its program automatically; overlapping matches require an explicit choice. Page actions still validate the configured URL path and country mapping.
 
@@ -70,7 +82,7 @@ You need **Chrome 120 or later**, an **AEM as a Cloud Service publish environmen
 2. Open `chrome://extensions` and enable **Developer mode**.
 3. Select **Load unpacked** and choose the folder containing `manifest.json`.
 4. Pin **AEM CDN Toolkit**, open its popup and select **Settings**.
-5. Add an environment, its HTTPS publish origin, country mappings and keys. Save and grant access to the configured hosts.
+5. Add an environment and choose Standard Adobe CDN or BYO. Configure public mappings, service targets and the keys required by that setup. Save and grant access to the configured hosts.
 6. Visit a matching public page, open the popup and select an environment and country when needed.
 
 Fresh installs start empty. Use [config.example.json](config.example.json) as an optional import template, replacing its fictional domains and blank keys. No build step is required to load the extension.
@@ -104,7 +116,7 @@ npm run package
 
 `check` runs ESLint, Prettier and the Node test suite. `package` also builds and verifies:
 
-- `dist/aem-cdn-toolkit-2.7.0.zip` and its SHA-256 checksum.
+- `dist/aem-cdn-toolkit-2.8.0.zip` and its SHA-256 checksum.
 - `dist/site/`, the static presentation and privacy site with local artwork.
 
 Automated tests use simulated browser APIs and synthetic credentials. They send no live purge requests; real Chrome and AEM verification remain separate checks.

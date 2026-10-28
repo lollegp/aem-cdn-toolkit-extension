@@ -32,6 +32,8 @@ async function setup({
   context,
   programs = false,
   overlap = false,
+  standard = false,
+  preview = false,
   invalidConfig = false,
   sharedDomain = false,
   missingContextResponse = false,
@@ -111,6 +113,10 @@ async function setup({
       },
     ],
   };
+  if (standard) {
+    config.environments[0].cdnMode = 'standard';
+    config.environments[0].publishUrl = '';
+  }
   config.environments[0].confirmPagePurge = confirmPagePurge;
   config.environments[0].confirmFullPurge = confirmFullPurge;
   config.environments[0].fullPurgeEnabled = fullPurgeEnabled;
@@ -142,6 +148,10 @@ async function setup({
         },
       ],
     };
+  if (preview) {
+    config.environments[0].previewUrl = 'https://preview-dev.example.invalid/';
+    config.environments[0].countries[1].service = 'preview';
+  }
   const calls = [],
     state = {
       tab: { id: 1, url, incognito },
@@ -480,4 +490,52 @@ test('Overlapping programs require explicit selection before actions', async () 
   elements.program.listeners.change();
   assert.equal(elements.environment.value, 'DEV');
   assert.equal(elements.purge.disabled, false);
+});
+
+test('Standard popup hides publish and previews public-domain purge without forwarded host', async () => {
+  const { elements, calls } = await setup({
+    standard: true,
+    confirmPagePurge: true,
+  });
+  assert.equal(elements.publish.hidden, true);
+  assert.equal(elements.publish.disabled, true);
+  await elements.publish.listeners.click();
+  assert.equal(calls.filter((call) => call.action === 'publish').length, 0);
+  await elements.purge.listeners.click();
+  assert.match(
+    elements.purgeTarget.textContent,
+    /PURGE https:\/\/us.example.invalid\/ports/,
+  );
+  assert.doesNotMatch(elements.purgeTarget.textContent, /X-Forwarded-Host/);
+  elements.confirmed.checked = true;
+  await elements.sendPurge.listeners.click();
+  assert.equal(calls.at(-1).expectedTarget, 'https://us.example.invalid/ports');
+  assert.equal(calls.at(-1).expectedForwardedHost, '');
+});
+
+test('Preview mapping chooses preview navigation and service-specific purge target', async () => {
+  const { elements, calls } = await setup({ preview: true });
+  assert.equal(elements.country.value, 'US@preview');
+  assert.match(elements.publish.textContent, /preview/);
+  await elements.publish.listeners.click();
+  assert.equal(
+    calls.at(-1).expectedTarget,
+    'https://preview-dev.example.invalid/ports',
+  );
+  assert.equal(calls.at(-1).service, 'preview');
+  await elements.purge.listeners.click();
+  assert.equal(
+    calls.at(-1).expectedTarget,
+    'https://preview-dev.example.invalid/ports',
+  );
+});
+test('Preview ingress restores remembered preview mapping', async () => {
+  const { elements } = await setup({
+    preview: true,
+    url: 'https://preview-dev.example.invalid/ports',
+    context: { environment: 'DEV', country: 'US@preview', service: 'preview' },
+  });
+  assert.equal(elements.country.value, 'US@preview');
+  assert.equal(elements.country.disabled, true);
+  assert.match(elements.publish.textContent, /preview/);
 });
