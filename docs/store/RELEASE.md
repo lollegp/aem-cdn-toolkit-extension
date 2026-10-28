@@ -1,126 +1,97 @@
-# Chrome Web Store release: 2.7.0
+# Chrome Web Store release: 2.8.0
 
-## What is new in 2.7.0
+## Release artifacts
 
-- Manage multiple programs with independent environments, mappings, keys and purge policies.
-- Detect the current URL across every program, regardless of the last Settings selection; resolve overlapping matches explicitly.
-- Duplicate program settings without copying authentication keys.
-- Filter purge activity by program and status, with a visible program badge on each request.
-- Choose System, Light or Dark appearance; System follows the computer by default.
-- Preserve older configurations as Default and support full-workspace JSON import/export.
+- Upload: `dist/aem-cdn-toolkit-2.8.0.zip`.
+- Integrity checksum: `dist/aem-cdn-toolkit-2.8.0.zip.sha256`.
+- Public website build: `dist/site/`.
+- Store icon: `icons/toolkit-neutral-128.png`.
+- Promotional tile: `docs/imgs/promo_tile_440x280.png`.
+- Release notes: [CHANGELOG.md](../../CHANGELOG.md).
 
-## Prepared locally
+The runtime package starts with empty configuration and contains no development tools, tests, customer configuration or keys. Current Settings and activity screenshots are in `docs/imgs/release-2.8.0/`, captured in isolated Chrome with fictional data. Older promotional images remain illustrative. See the screenshot directory README for verification scope.
 
-- Minimal Manifest V3 ZIP: `dist/aem-cdn-toolkit-2.7.0.zip`.
-- Empty configuration on first install. No keys, organization domains or sample environments in the runtime package.
-- Local help and privacy pages, plus a GitHub Pages build and automatic cross-repository publishing workflow.
-- 128×128 store icon: `icons/toolkit-neutral-128.png`.
-- 440×280 promotional tile: `docs/imgs/promo_tile_440x280.png`.
-- Additional promotional artwork and illustrative interface previews: `docs/imgs/`. These do not replace the actual Chrome screenshots required below.
-- Development files, tests, sample configuration and original icon master files excluded from the ZIP.
-- No remote executable code, content scripts, analytics, tracking or developer backend.
-- Host access optional and requested for configured hosts; incognito available through Chrome’s explicit Allow in Incognito toggle.
+## What is new
 
-## Listing copy
+- Standard Adobe CDN support for domains mapped in Cloud Manager. Purge targets the final public domain and requires a purge key, without edge-key or forwarded-host headers.
+- BYO preview support with a separate origin and keys, or explicit publish-key reuse. Domain mappings select Publish or Preview; actions follow that selection.
+- Expandable response-body previews in activity, with JSON formatting, size limits and credential redaction. Incognito requests remain excluded from saved activity.
+- Compact program controls above environments in Settings and at the top-right of the popup.
+
+Existing environments remain BYO and existing mappings remain Publish. Program import/export and key-clearing behavior cover both services. Switching to Standard clears BYO origins and credentials; preview full purge targets only Preview. See the changelog and usage guide for migration details.
+
+## Store listing copy
 
 **Name:** AEM CDN Toolkit
 
-**Short description:** Manage AEM CDN cache, open authenticated publish pages and configure environment-specific page actions.
+**Short description:** Manage AEM CDN cache across programs, Standard and BYO setups, with publish/preview access and purge response logs.
 
 **Category:** Developer Tools
 
-**Single purpose:** Help AEM developers and operators inspect publish pages and manage CDN cache for their explicitly configured AEM environments.
+**Single purpose:** Help AEM developers and operators manage CDN cache and access their configured AEM publish and preview services.
 
 **Detailed description:**
 
-AEM CDN Toolkit brings your configured AEM environments into the current page's Chrome popup.
+AEM CDN Toolkit brings configured AEM programs and environments into your Chrome toolbar.
 
-- Manage independent programs; duplicate settings without copying keys.
-- Create and reorder environments with public country mappings and a shared AEM publish origin.
-- Automatically recognize configured domains across all programs with a green toolbar indicator.
-- Open authenticated publish pages in a new tab by default, or a new window per environment.
+- Choose Standard Adobe CDN for Cloud Manager domains or BYO customer CDN per environment.
+- Manage multiple programs with independent environments, country mappings and credentials.
+- Detect matching programs automatically from the current URL, regardless of the last Settings selection.
+- In BYO mode, map domains to Publish or Preview and open the selected service with scoped authentication headers.
+- Configure separate preview keys or explicitly reuse publish credentials.
+- Send soft or hard page purge requests. Enable full-service purge explicitly where needed, with independent confirmation controls.
 - Add a random cache-busting query parameter to the current page.
-- Send soft or hard page purge requests. Enable full-environment purge explicitly where needed.
-- Configure independent checkbox confirmation for page and full purge.
-- Filter local purge activity by program and status; identify requests by program badge.
-- Choose System, Light or Dark appearance, following the computer theme by default.
-- Search local purge activity and inspect response status and request IDs.
-- Import and export JSON configurations. Exports omit keys unless you explicitly include them.
+- Filter local purge activity by program and status. Inspect service labels, request IDs and expandable response previews.
+- Use System, Light or Dark appearance.
+- Import/export program configurations and duplicate setups without keys.
 
-Requires an AEM as a Cloud Service publish environment and suitable edge/purge keys. The extension does not provision AEM services or issue credentials. Configuration and activity are stored in your Chrome profile; requests go directly to your configured service. No analytics or developer backend. Independent community tool, not affiliated with or endorsed by Adobe or Google.
+Requires configured AEM as a Cloud Service endpoints and a purge key for purge operations. BYO authenticated access also requires an edge key. The extension does not provision AEM services or issue credentials. Full purge applies to the selected AEM service, not just a country or domain. It does not purge Dispatcher or a separate customer CDN.
+
+Configuration and up to 100 activity records stay in your Chrome profile. Requests go directly to your configured services. There is no analytics or developer backend. Incognito requires Chrome's Allow in Incognito setting; its purge activity is not saved. Independent community tool, not affiliated with or endorsed by Adobe or Google.
 
 **Support:** https://github.com/lollegp/aem-cdn-toolkit-extension/issues
 
-**Homepage after deployment:** https://lollegp.github.io/aem-cdn-toolkit-extension/
+**Homepage:** https://lollegp.github.io/aem-cdn-toolkit-extension/
 
-**Privacy URL after deployment:** https://lollegp.github.io/aem-cdn-toolkit-extension/privacy.html
+**Privacy:** https://lollegp.github.io/aem-cdn-toolkit-extension/privacy.html
 
-## Privacy dashboard preparation
+## Privacy and permissions
 
-Reconcile all dashboard answers with `privacy.html` and the final package; do not mark every category “not collected” simply because processing is local.
+Reconcile dashboard answers with [privacy.html](../../privacy.html). The extension handles authentication keys, configured URLs, invoked-tab URL context and local activity, including bounded response previews. Known request keys and JSON credential fields are redacted; other information returned by a service may remain. No data is sent to the developer, sold or used for advertising. Saved keys are plaintext extension storage.
 
-The extension handles user-entered authentication keys, configured website URLs, current-tab URL context and local purge activity. Keys and relevant request URLs are transmitted only to user-configured HTTPS services to provide the requested action. No data is sent to the developer or sold, used for advertising, or transferred to data brokers. No remote code is executed.
+- `activeTab`: inspect the invoked tab and match it to a configured program, environment and service.
+- `storage`: persist program/environment settings, appearance, keys and up to 100 activity records; retain temporary service-tab context in session storage.
+- `declarativeNetRequestWithHostAccess`: apply BYO authentication headers only to the created tab and exact configured publish/preview origin. Remove rules on tab closure or credential cleanup. Standard mode installs no navigation headers.
+- Optional `https://*/*`: request access only to explicitly configured hosts at runtime. No all-sites host access is granted at installation.
 
-Permission justifications:
+## Local verification
 
-- `activeTab`: inspect the page the user invokes the extension on, match it to a configured environment, and apply its page action.
-- `storage`: persist environment settings, keys and up to 100 purge records locally; keep temporary publish-tab context in session storage.
-- `declarativeNetRequestWithHostAccess`: attach the configured edge key and forwarded hostname only to the selected publish origin within created publish tabs. Remove rules on tab closure or credential/configuration cleanup.
-- Optional `https://*/*`: support arbitrary user-configured AEM and public-site hosts. Runtime requests grant only explicit configured hosts; no all-sites host access is granted at install time. Chrome host patterns cover all ports of a granted hostname; actual matching and header rules use exact origins.
+Run `npm run package` to check lint, formatting and tests, build the allowlisted ZIP and verify its contents byte-for-byte. Confirm all release metadata versions agree and the bundled configuration is empty. Keep unrelated local files outside the package. If an unrelated tool directory prevents formatting checks, document any narrow exclusion and run the remaining checks plus `python3 scripts/package.py` explicitly.
 
-## Submission gates still requiring a human/browser
+Automated tests use synthetic credentials and browser API fakes; they send no real AEM purge requests. They cover Standard/BYO routing, preview key selection and service targets, program matching, confirmation rules, imports/exports, response previews, activity, Incognito exclusions and credential races.
 
-1. Review and approve the final privacy wording and support route. Deploy the site and verify its public HTTPS URLs return the expected content. No site or repository publication happened during this work.
-2. Load the generated ZIP contents unpacked in a fresh Chrome profile. Confirm initial Settings is empty and the runtime has no errors.
-3. Add an environment with disposable test keys and an authorized test endpoint. Verify optional host permission prompts, save, import/export without keys, opt-in key export, reorder, rename, discard, reset, and configuration persistence after browser restart.
-4. Verify the actual popup and Settings layouts at narrow and wide sizes, keyboard-only navigation, dialog focus, screen-reader names, high-contrast mode, and scroll behavior of the sticky Save bar.
-5. Verify publish opens in the same browser window as a new tab by default, and opens a new window only when selected and saved. Inspect requests: header rules must apply to the exact publish origin and tab, never another origin or lookalike. Include redirects, tabs closed during creation, and service-worker restarts.
-6. Send page/full purge only to an authorized test environment. Verify request headers, no cookies, redirect rejection, response handling, checkbox confirmation, disabled full purge, timeout/unknown outcomes and activity retention. No live PURGE requests were sent during this review.
-7. Capture at least one actual UI screenshot at 1280×800 or 640×400. Recommended: Settings setup, the matched-page popup, and filtered purge activity. Use fictional domains, no keys or private information. Screenshots are not supplied because isolated Chrome launch and the connected browser were unavailable in the review environment.
-8. Upload the ZIP, store icon, promotional tile and actual screenshots to your developer dashboard. Complete account/publisher details and privacy disclosures, then submit for review. Chrome Web Store approval is not guaranteed by static checks or unit tests.
+Release preparation also exercised the loaded extension in isolated headless Chrome: Settings program placement, Manage bounds, 390 px layout without horizontal overflow, explicit dark mode and System light/dark, activity response rendering and status filtering. Popup Preview selection and Standard navigation visibility were checked using a fictional active-tab fixture. These checks do not establish live AEM request, native popup, permission prompt or Incognito behavior.
 
-## Review findings and fixes
+Local lint, tests and packaging run separately because unrelated `.serena/project.yml` fails the repository-wide formatter. Formatting excludes only `.serena/**`; that directory is neither committed nor packaged.
 
-- Fixed configuration/credential snapshot mismatch that could send newly saved credentials to an old publish host.
-- Fixed credential-clear and mid-save races that could reinstall removed header rules.
-- Serialized all Settings writes in the worker and reject stale configuration snapshots.
-- Revoked active publish access when keys or identity/mappings change.
-- Enabled spanning incognito support, preserved publish browsing mode and excluded incognito purge attempts from saved activity.
-- Omitted URL queries/fragments from new activity records and removed duplicate console logging.
-- Distinguished a cancelled, unsent purge from an uncertain network outcome.
-- Added unsaved-change protection and opt-in export of keys.
-- Require the popup's reviewed target, mode and forwarded host to match the current saved action before sending.
-- Serialize activity clearing and suppress completions of requests that were already in flight when history was cleared.
-- Reorganized configuration into steps, separated full purge from page actions, added activity filters and an explicit publish destination label.
+## Before submission
 
-## Official references checked
+1. Load the ZIP contents unpacked in Chrome. Check a fresh installation and an upgrade with existing configurations.
+2. Verify Standard public-path preservation, purge-key-only requests and absence of publish navigation against an authorized test endpoint.
+3. Verify BYO Publish and Preview navigation, separate keys, shared-key opt-in, exact-origin/tab header scoping and rejection of cross-service mappings. Preview full purge must not target Publish.
+4. Check popup and Settings at narrow/wide sizes, both themes, keyboard navigation and the Manage dropdown. Confirm program controls appear only inside the Settings tab on the management page.
+5. Verify permission prompts, configuration persistence, import/export, duplicate-without-keys, credential clearing and stale-save protection.
+6. Check response previews for success, failure, empty/text/JSON responses, truncation and credential redaction. Confirm clearing history deletes previews.
+7. Test Incognito Publish/Preview tabs and windows, including session cleanup. Purge outcomes must not enter persistent history; Settings/activity open in a regular window.
+8. Capture current screenshots with fictional hosts and no credentials. Existing promotional previews do not establish current browser verification.
+9. Deploy and verify the updated public help/privacy pages before submitting the ZIP and listing. The existing workflow deploys relevant changes pushed to `main` using `PAGES_DEPLOY_TOKEN`; local packaging does not deploy anything.
+10. Upload the ZIP and assets in the Chrome Web Store dashboard, review disclosures and submit. Store approval is a separate process.
 
-- [Prepare an extension](https://developer.chrome.com/docs/webstore/prepare)
-- [Store image requirements](https://developer.chrome.com/docs/webstore/images)
-- [Privacy dashboard fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)
-- [Program policies](https://developer.chrome.com/docs/webstore/program-policies/policies)
-- [Incognito manifest setting](https://developer.chrome.com/docs/extensions/reference/manifest/incognito)
+## Official references
 
-## New-feature verification for 2.7.0
-
-- Upgrade an existing installation and confirm its settings appear in Default.
-- Add two programs with repeated environment names and different hosts/keys. Verify URL detection selects the matching program even when another is selected in Settings.
-- Configure overlapping hosts and verify explicit selection is required.
-- Duplicate a program and verify both authentication key fields are empty.
-- Verify program creation, renaming, deletion, import/export, reset and stale-save protection.
-- Filter activity by program, search and status; check program badges, legacy Default records and selection preservation on refresh.
-- Verify System follows OS appearance changes and explicit Light/Dark choices persist across popup and Settings, including keyboard focus and readable status colors.
-- Capture fresh actual screenshots showing programs, appearance and activity badges. Existing illustrative screenshots predate this release.
-
-## Incognito verification for 2.7.0
-
-Automated tests cover regular/incognito publish tab and window options, tab-scoped header rules, private purge outcomes without persistent history writes, and management-page routing. Complete these real-Chrome checks before submitting:
-
-- Enable **Allow in Incognito** and grant the configured host permissions from Settings.
-- Confirm the popup and toolbar indicator work on a configured incognito page.
-- Open publish in both tab and window modes; verify incognito mode and actual header injection.
-- Verify cache-parameter navigation stays in the original incognito tab.
-- Send an authorized test purge and verify its result appears in the popup without entering saved activity.
-- Confirm Settings and saved activity open in a regular window, including when no regular window was open.
-- Close publish tabs and verify their rules and session contexts are removed.
-- Clear keys or change mappings while both browsing modes are open; confirm active headers are cleared in both.
+- [Adobe CDN purge](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-cache-purge)
+- [Adobe CDN credentials](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-credentials-authentication)
+- [Adobe BYO CDN and preview support](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn)
+- [Prepare a Chrome extension](https://developer.chrome.com/docs/webstore/prepare)
+- [Chrome Web Store images](https://developer.chrome.com/docs/webstore/images)
+- [Privacy dashboard](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)

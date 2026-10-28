@@ -26,8 +26,8 @@ files = [
 presentation_assets = [
     'docs/imgs/AEM CDN Toolkit Showcase.png',
     'docs/imgs/popup_1280x800.png',
-    'docs/imgs/environment_settings_1280x800.png',
-    'docs/imgs/purge_activity_1280x800.png',
+    'docs/imgs/release-2.8.0/settings-light-1280x800.png',
+    'docs/imgs/release-2.8.0/activity-1280x800.png',
 ]
 files += presentation_assets
 files += [f'icons/toolkit-{state}-{size}.png' for state in ['neutral', 'green'] for size in [16, 32, 48, 128]]

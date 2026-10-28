@@ -22,9 +22,11 @@
             <p>Manage your environments. Work from any page.</p>
           </div>
         </div>
-        <a href="help.html" target="_blank" rel="noreferrer"
-          >Help &amp; privacy ↗</a
-        >
+        <div class="header-tools">
+          <a href="help.html" target="_blank" rel="noreferrer"
+            >Help &amp; privacy ↗</a
+          >
+        </div>
       </header>
       <section class="appearance" aria-label="Appearance">
         <div>
@@ -46,23 +48,7 @@
           <option value="dark">Dark</option>
         </select>
       </section>
-      <section class="card" aria-label="Program">
-        <label for="program">Program</label
-        ><select id="program"></select>
-        <p class="hint">
-          Each program has its own environments, mappings, keys and purge
-          settings. The popup detects matching programs automatically.
-        </p>
-        <div class="actions">
-          <button id="addProgram">Add program</button
-          ><button id="renameProgram" class="secondary">Rename</button
-          ><button id="duplicateProgram" class="secondary">
-            Duplicate without keys</button
-          ><button id="removeProgram" class="danger-outline">
-            Delete program
-          </button>
-        </div>
-      </section>
+
       <nav class="section-tabs" role="tablist" aria-label="Toolkit sections">
         <button
           id="settingsTab"
@@ -83,6 +69,34 @@
         </button>
       </nav>
       <section id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab">
+        <div
+          class="program-switcher settings-program"
+          role="group"
+          aria-label="Program"
+        >
+          <label for="program">Program</label>
+          <select id="program"></select>
+          <details class="program-menu">
+            <summary aria-label="Manage programs" title="Manage programs">
+              Manage
+            </summary>
+            <div class="program-menu-panel">
+              <p class="hint">
+                Each program has its own environments and keys. Matching pages
+                select their program automatically.
+              </p>
+              <button id="addProgram">Add program</button>
+              <button id="renameProgram" class="secondary">Rename</button>
+              <button id="duplicateProgram" class="secondary">
+                Duplicate without keys
+              </button>
+              <button id="removeProgram" class="danger-outline">
+                Delete program
+              </button>
+            </div>
+          </details>
+        </div>
+
         <div class="section-heading">
           <div>
             <h1>Environment settings</h1>
@@ -161,11 +175,22 @@
               <span class="step">1</span>
               <div>
                 <h2>Environment</h2>
-                <p class="muted">
-                  Give it a name and connect the publish service.
-                </p>
+                <p class="muted">Give it a name and select its CDN setup.</p>
               </div>
             </div>
+            <label for="cdnMode">CDN setup</label>
+            <select id="cdnMode">
+              <option value="byo">BYO customer CDN (existing setup)</option>
+              <option value="standard">
+                Standard Adobe CDN (Cloud Manager domains)
+              </option>
+            </select>
+            <p class="hint">
+              Standard targets the public domain and needs only a purge key. BYO
+              targets the publish origin with edge-key and forwarded-host
+              headers. Saving Standard removes the saved publish origin and edge
+              key.
+            </p>
             <div class="grid">
               <div>
                 <label for="environmentName">Environment name</label
@@ -175,7 +200,19 @@
                   autocomplete="off"
                 />
               </div>
-              <div>
+              <div data-byo>
+                <label for="previewUrl">AEM preview URL (optional)</label>
+                <input
+                  id="previewUrl"
+                  type="url"
+                  placeholder="https://preview-p123-e456.adobeaemcloud.com/"
+                  spellcheck="false"
+                />
+                <p class="hint">
+                  HTTPS origin only. Preview mappings use this service.
+                </p>
+              </div>
+              <div data-byo>
                 <label for="publishUrl">AEM publish URL</label
                 ><input
                   id="publishUrl"
@@ -193,7 +230,8 @@
               <div>
                 <h2>Public sites &amp; countries</h2>
                 <p class="muted">
-                  Map each public site to a path on this publish service.
+                  Configure public site URLs. Publish path prefixes apply only
+                  to BYO CDN.
                 </p>
               </div>
             </div>
@@ -202,8 +240,8 @@
               + Add country mapping
             </button>
             <p class="hint">
-              Example: US · https://www.example.com/ · /content/site/us. Use /
-              when public and publish paths match.
+              BYO example: US · https://www.example.com/ · /content/site/us. Use
+              / when public and publish paths match.
             </p>
           </section>
           <section class="card">
@@ -217,7 +255,7 @@
               </div>
             </div>
             <div class="grid">
-              <div>
+              <div data-byo>
                 <label for="edgeKey"
                   >Edge key
                   <span class="label-meta">X-AEM-Edge-Key</span></label
@@ -242,6 +280,37 @@
                 <p class="hint">Required only for purge.</p>
               </div>
             </div>
+            <div data-byo>
+              <h3>Preview access keys</h3>
+              <label class="check"
+                ><input type="checkbox" id="previewUsePublishKeys" />Use publish
+                keys for preview</label
+              >
+              <p class="hint">
+                Enable only when both services use the same keys. Otherwise
+                configure separate preview keys below.
+              </p>
+              <div class="grid">
+                <div>
+                  <label for="previewEdgeKey">Preview edge key</label
+                  ><input
+                    id="previewEdgeKey"
+                    type="password"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+                <div>
+                  <label for="previewPurgeKey">Preview purge key</label
+                  ><input
+                    id="previewPurgeKey"
+                    type="password"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+            </div>
             <p class="notice">
               Keys are saved locally in this Chrome profile, not in an encrypted
               vault. No keys are sent to the extension developer.
@@ -258,7 +327,7 @@
               </div>
             </div>
             <div class="grid">
-              <div>
+              <div data-byo>
                 <label for="publishOpenMode">Open publish page in</label
                 ><select id="publishOpenMode">
                   <option value="tab">New tab (default)</option>

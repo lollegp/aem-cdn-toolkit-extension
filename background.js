@@ -1,6 +1,8 @@
 import { startActivation } from './activation.js';
 import {
   resolvePage,
+  mappingId,
+  serviceSecrets,
   bypassURL,
   purgePolicy,
   requiresPurgeConfirmation,
@@ -9,6 +11,7 @@ import {
   publishRule,
   permissionOrigins,
   responseSummary,
+  responseLog,
   validateConfig,
   programList,
   programConfig,
@@ -66,14 +69,33 @@ function credentialIdentity(config) {
       .flatMap((program) =>
         program.environments.map((env) => ({ ...env, program: program.id })),
       )
-      .map(({ name, publishUrl, countries, edgeKey, purgeKey, program }) => ({
-        program,
-        name,
-        publishUrl,
-        countries,
-        edgeKey,
-        purgeKey,
-      }))
+      .map(
+        ({
+          name,
+          publishUrl,
+          countries,
+          edgeKey,
+          purgeKey,
+          program,
+          cdnMode,
+          previewUrl,
+          previewEdgeKey,
+          previewPurgeKey,
+          previewUsePublishKeys,
+        }) => ({
+          program,
+          cdnMode,
+          previewUrl,
+          previewEdgeKey,
+          previewPurgeKey,
+          previewUsePublishKeys,
+          name,
+          publishUrl,
+          countries,
+          edgeKey,
+          purgeKey,
+        }),
+      )
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
 }
@@ -133,6 +155,10 @@ async function execute(message) {
   const program = programList(workspace).find((item) => item.id === programId);
   const env = config.environments.find((e) => e.name === message.environment);
   if (!env) throw new Error('Invalid environment.');
+  if (message.action === 'publish' && env.cdnMode === 'standard')
+    throw new Error(
+      'Publish access is unavailable for Standard Adobe CDN environments.',
+    );
   const policy = purgePolicy(env);
   // Enforce the saved policy before any fetch, permission checks or page matching.
   if (message.action === 'purgeAll' && !policy.fullPurgeEnabled)
@@ -141,9 +167,9 @@ async function execute(message) {
   if (!tab.url || tab.url !== message.expectedURL)
     throw new Error('The page changed. Reopen the popup before continuing.');
   const context = await tabContext(tab.id);
-  const onPublish =
-    env.publishUrl &&
-    new URL(tab.url).origin === new URL(env.publishUrl).origin;
+  const onPublish = [env.publishUrl, env.previewUrl]
+    .filter(Boolean)
+    .some((origin) => new URL(tab.url).origin === new URL(origin).origin);
   if (
     onPublish &&
     context &&
@@ -155,7 +181,14 @@ async function execute(message) {
       'This publish tab belongs to a different country or environment.',
     );
   const page = resolvePage(env, tab.url, message.country);
-  if (onPublish && context && context.forwardedHost !== page.forwardedHost)
+  if (message.service && message.service !== (page.service || 'publish'))
+    throw new Error('Selected service changed. Reopen the popup.');
+  if (
+    onPublish &&
+    context &&
+    ((context.service || 'publish') !== page.service ||
+      context.forwardedHost !== page.forwardedHost)
+  )
     throw new Error(
       'The country mapping changed. Reopen the publish window from the public site.',
     );
@@ -181,8 +214,11 @@ async function execute(message) {
     throw new Error(
       'Grant access to the configured domains in Settings or the popup.',
     );
-  const secrets =
-    (await loadSecrets(config, programId === 'default'))[env.name] || {};
+  const secrets = serviceSecrets(
+    env,
+    (await loadSecrets(config, programId === 'default'))[env.name] || {},
+    page.service,
+  );
   if (message.action === 'publish') {
     const headers = requestHeaders(secrets, page.forwardedHost);
     return serial(async () => {
@@ -217,14 +253,16 @@ async function execute(message) {
         tabs[id] = {
           program: programId,
           environment: env.name,
-          country: page.country.code,
+          country: mappingId(page.country),
+          service: page.service,
           forwardedHost: page.forwardedHost,
         };
         await chrome.storage.session.set({ publishTabs: tabs });
         await chrome.tabs.update(id, { url: page.publishUrl.href });
         return {
           text:
-            'Publish opened in a new ' +
+            (page.service === 'preview' ? 'Preview' : 'Publish') +
+            ' opened in a new ' +
             (newWindow ? 'window' : 'tab') +
             ' for ' +
             page.country.code +
@@ -255,13 +293,24 @@ async function execute(message) {
     const activityHint = tab.incognito
       ? ' Incognito activity is not saved.'
       : ' See Purge activity.';
-    const headers = requestHeaders(secrets, page.forwardedHost, request.mode);
+    const headers = requestHeaders(
+      secrets,
+      page.forwardedHost,
+      request.mode,
+      env.cdnMode,
+    );
     // Keep the environment quiet until its current purge request completes.
-    if (inFlight.has(programId + ':' + env.name))
+    if (
+      inFlight.has(
+        programId + ':' + env.name + ':' + (page.service || 'publish'),
+      )
+    )
       throw new Error(
         'A purge is already running for this environment. Check Purge activity.',
       );
-    inFlight.add(programId + ':' + env.name);
+    inFlight.add(
+      programId + ':' + env.name + ':' + (page.service || 'publish'),
+    );
     const record = {
       id: crypto.randomUUID(),
       startedAt: new Date().toISOString(),
@@ -269,8 +318,10 @@ async function execute(message) {
       programName: program.name,
       environment: env.name,
       country: page.country.code,
+      service: page.service || 'publish',
       scope,
       mode: request.mode,
+      cdnMode: env.cdnMode,
       target: new URL(request.url).origin + new URL(request.url).pathname,
       forwardedHost: page.forwardedHost,
       state: 'pending',
@@ -290,26 +341,78 @@ async function execute(message) {
         cache: 'no-store',
         signal: controller.signal,
       });
-      let body;
-      // A successful HTTP response still needs its application status checked.
-      if ((response.headers?.get('content-type') || '').includes('json')) {
+      let body,
+        responseBody = '',
+        responseReadError = false,
+        responseTruncated = false;
+      try {
+        if (response.body?.getReader) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let bytes = 0;
+          try {
+            while (bytes <= 16384) {
+              const chunk = await reader.read();
+              if (chunk.done) break;
+              const remaining = 16384 - bytes;
+              responseBody += decoder.decode(
+                chunk.value.subarray(0, remaining),
+                { stream: true },
+              );
+              bytes += chunk.value.length;
+              if (bytes > 16384) {
+                responseTruncated = true;
+                await reader.cancel();
+                break;
+              }
+            }
+            responseBody += decoder.decode();
+          } finally {
+            reader.releaseLock();
+          }
+          if (responseTruncated)
+            responseBody = '[Response omitted: exceeds 16 KiB limit.]';
+        } else if (response.text) responseBody = await response.text();
+        else if ((response.headers?.get('content-type') || '').includes('json'))
+          responseBody = JSON.stringify(await response.json());
         try {
-          body = await response.json();
-        } catch (error) {
-          if (controller.signal.aborted) throw error;
-        }
+          body = JSON.parse(responseBody);
+        } catch {}
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        responseReadError = true;
       }
       if (
         typeof body?.id === 'string' &&
-        [secrets.edgeKey, secrets.purgeKey].some(
-          (key) => key && body.id.includes(key),
-        )
+        [
+          secrets.edgeKey,
+          secrets.purgeKey,
+          env.edgeKey,
+          env.purgeKey,
+          env.previewEdgeKey,
+          env.previewPurgeKey,
+        ].some((key) => key && body.id.includes(key))
       )
         body = { ...body, id: undefined };
       const result = responseSummary(response.status, body);
+      if (
+        (responseTruncated || responseReadError) &&
+        response.status >= 200 &&
+        response.status < 300
+      )
+        result.state = 'unknown';
       const final = {
         ...record,
         ...result,
+        responseBody: responseLog(responseBody, [
+          secrets.edgeKey,
+          secrets.purgeKey,
+          env.edgeKey,
+          env.purgeKey,
+          env.previewEdgeKey,
+          env.previewPurgeKey,
+        ]),
+        responseReadError,
         finishedAt: new Date().toISOString(),
       };
       await logRecord(final, recordEpoch, tab.incognito);
@@ -327,6 +430,9 @@ async function execute(message) {
         text:
           result.state === 'succeeded'
             ? 'AEM CDN returned status ok.' + activityHint
+            : result.state === 'unknown'
+            ? 'Response was incomplete. Purge outcome was not confirmed; verify before retrying.' +
+              activityHint
             : 'Purge request accepted. Completion was not confirmed by the response.' +
               activityHint,
         record: final,
@@ -346,7 +452,9 @@ async function execute(message) {
       return { ok: false, text: final.error, record: final };
     } finally {
       clearTimeout(timer);
-      inFlight.delete(programId + ':' + env.name);
+      inFlight.delete(
+        programId + ':' + env.name + ':' + (page.service || 'publish'),
+      );
     }
   }
   throw new Error('Unknown action.');

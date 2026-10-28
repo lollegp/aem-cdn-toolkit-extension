@@ -29,7 +29,7 @@
       <p class="eyebrow">YOUR DATA</p>
       <h1>Privacy policy</h1>
       <p>
-        Effective October 26, 2026. This policy describes AEM CDN Toolkit 2.7.0,
+        Effective October 28, 2026. This policy describes AEM CDN Toolkit 2.8.0,
         maintained by the owner of the
         <a
           href="https://github.com/lollegp/aem-cdn-toolkit-extension"
@@ -59,10 +59,11 @@
         </li>
         <li>
           <strong>Activity:</strong> up to 100 purge records are stored locally,
-          including time, environment, country, publish origin and path, mode,
-          result and request IDs. New records omit URL query strings and
-          fragments. Records created by older versions may contain query
-          strings; use Clear activity to remove them.
+          including time, program, environment, country, service, target origin
+          and path, mode, result and request IDs. New target URL fields omit
+          query strings and fragments; response previews may contain other
+          information returned by the service. Records created by older versions
+          may contain query strings; use Clear activity to remove them.
         </li>
         <li>
           <strong>Session state:</strong> publish-tab context and scoped
@@ -72,13 +73,14 @@
       </ul>
       <h2>Where data is sent</h2>
       <p>
-        When you open publish, the configured edge key and forwarded public
-        hostname are attached to requests to that exact publish origin in the
-        created tab. Purge sends the edge key, purge key, forwarded public
-        hostname, purge mode and target URL directly to your configured HTTPS
-        publish service. Page query parameters can be included in the actual
-        publish or purge request. Adding a cache parameter navigates your
-        existing page.
+        In BYO mode, opening publish or preview attaches the selected service’s
+        edge key and forwarded public hostname to that exact origin in the
+        created tab. BYO purge sends that service’s edge key, purge key,
+        forwarded hostname, purge mode and target URL. Standard mode sends purge
+        requests to the configured public domain with its purge key and mode,
+        without edge-key or forwarded-host headers. Requests go directly to the
+        configured HTTPS service. No credentials or activity are sent to the
+        extension developer.
       </p>
       <p>
         The extension has no developer backend, analytics, advertising, remote
@@ -121,6 +123,22 @@
         configured programs. Purge records include the program identity and name
         so activity can be labeled and filtered. Older records are shown under
         Default. Duplicating a program excludes its saved authentication keys.
+      </p>
+      <p>
+        New purge activity also stores a bounded response-body preview from the
+        configured service for diagnostics. Known request keys and JSON fields
+        identifying credentials are redacted. Other information returned by that
+        service may remain in the preview. Response previews share activity
+        retention and deletion controls and are not saved for Incognito
+        requests.
+      </p>
+      <p>
+        BYO preview support can also store a preview service URL, separate
+        preview edge/purge keys and a preference to reuse publish keys. Domain
+        mappings identify their publish or preview service. Preview requests
+        transmit the credentials for the selected service only; activity
+        identifies that service. Key export, clearing and Incognito exclusions
+        apply to both services.
       </p>
       <h2>Retention and deletion</h2>
       <p>

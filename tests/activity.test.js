@@ -219,3 +219,22 @@ test('Program filter isolates identical environments and combines with other fil
   await elements.historyProgram.listeners.change();
   assert.match(elements.history.textContent, /Program: Default/);
 });
+
+test('Activity displays response bodies as expandable literal text', async () => {
+  const { elements } = await setup([
+    {
+      id: 'response',
+      state: 'failed',
+      startedAt: new Date().toISOString(),
+      responseBody: '<script>literal</script>',
+    },
+  ]);
+  const details = elements.history.children[0].children[1];
+  const response = details.children.find(
+    (element) => element.className === 'response-log',
+  );
+  assert.equal(response.tag, 'details');
+  assert.equal(response.children[0].textContent, 'Response body');
+  assert.equal(response.children[1].tag, 'pre');
+  assert.equal(response.children[1].textContent, '<script>literal</script>');
+});

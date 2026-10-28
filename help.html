@@ -20,7 +20,7 @@
         <span>AEM CDN <strong>Toolkit</strong></span>
       </a>
       <nav aria-label="Main">
-        <a href="#whats-new">New in 2.7</a>
+        <a href="#whats-new">New in 2.8</a>
         <a href="#tour">The toolkit</a>
         <a href="#setup">Get started</a>
         <a href="privacy.html">Privacy</a>
@@ -52,7 +52,7 @@
           </div>
         </div>
         <aside class="hero-note" aria-label="Extension at a glance">
-          <span class="edition">CHROME EXTENSION / 2.7.0</span>
+          <span class="edition">CHROME EXTENSION / 2.8.0</span>
           <p>Less switching.<br />More doing.</p>
           <ul>
             <li>Page &amp; environment purge</li>
@@ -96,46 +96,47 @@
         aria-labelledby="release-title"
       >
         <div class="section-heading">
-          <p class="eyebrow">NEW IN VERSION 2.7.0</p>
-          <h2 id="release-title">Every program. The right context.</h2>
+          <p class="eyebrow">NEW IN VERSION 2.8.0</p>
+          <h2 id="release-title">From public domain to preview.</h2>
           <p>
-            Separate your projects, find the right configuration automatically,
-            and keep every request identifiable.
+            Choose your CDN setup, route each mapping to the right service, and
+            inspect the response to every purge.
           </p>
         </div>
         <div class="release-grid">
           <article class="card">
-            <span class="step-number">01 / PROGRAMS</span>
-            <h3>A home for each program.</h3>
+            <span class="step-number">01 / CDN SETUP</span>
+            <h3>Standard or BYO.</h3>
             <p>
-              Add, rename or delete programs with independent environments,
-              country mappings, keys and purge policies. Duplicate a setup
-              without copying its keys.
+              Use Cloud Manager domains directly with Standard Adobe CDN, or
+              keep authenticated ingress access with BYO customer CDN. Standard
+              needs a purge key without edge-key or forwarded-host headers.
             </p>
           </article>
           <article class="card">
-            <span class="step-number">02 / AUTOMATIC DETECTION</span>
-            <h3>Follow the page you visit.</h3>
+            <span class="step-number">02 / PREVIEW SERVICE</span>
+            <h3>One mapping. The right service.</h3>
             <p>
-              The toolbar and popup check URLs across every program, even when
-              another program was last selected. Overlapping matches require
-              your choice.
+              BYO domain mappings select Publish or Preview. Configure a preview
+              origin and separate keys, or explicitly reuse publish keys.
+              Navigation and purge follow the selected service.
             </p>
           </article>
           <article class="card">
-            <span class="step-number">03 / ACTIVITY &amp; APPEARANCE</span>
-            <h3>See which program. Choose your theme.</h3>
+            <span class="step-number">03 / RESPONSE LOGS</span>
+            <h3>Inspect the result.</h3>
             <p>
-              Filter purge activity by program and status. Program badges label
-              each log. Choose System, Light or Dark in Settings; System follows
-              your computer by default.
+              Expand a purge response directly in activity. JSON is formatted,
+              known keys and credential fields are redacted, and previews are
+              size-limited. Program and service labels keep requests
+              identifiable.
             </p>
           </article>
         </div>
         <p class="scope-note">
-          Upgrading? Existing settings appear under Default. Import and export
-          cover all programs; exports omit keys by default. Older activity is
-          labeled Default.
+          Existing environments remain BYO and existing mappings remain Publish.
+          Program controls sit above environments in Settings and at the
+          top-right of the popup. Incognito activity stays unsaved.
         </p>
       </section>
       <section id="tour" class="tour" aria-labelledby="tour-title">
@@ -149,8 +150,9 @@
             <span class="step-number">01 / PAGE ACTIONS</span>
             <h3>Work on the page<br />you are already on.</h3>
             <p>
-              Open authenticated publish in a new tab or window, send a soft or
-              hard page purge, or add a random cache parameter.
+              With BYO CDN, open authenticated publish in a new tab or window.
+              In either setup, send a soft or hard page purge, or add a random
+              cache parameter.
             </p>
             <p>
               A green toolbar dot identifies configured domains. The popup
@@ -197,17 +199,17 @@
           </div>
           <figure class="preview">
             <a
-              href="docs/imgs/environment_settings_1280x800.png"
+              href="docs/imgs/release-2.8.0/settings-light-1280x800.png"
               aria-label="View full-size environment settings preview"
               ><img
-                src="docs/imgs/environment_settings_1280x800.png"
+                src="docs/imgs/release-2.8.0/settings-light-1280x800.png"
                 width="1280"
                 height="800"
-                alt="Illustrative environment settings mapping GB, IE and US public sites to a publish service."
+                alt="Version 2.8.0 Settings with program selection and CDN setup, using fictional data."
                 loading="lazy"
             /></a>
             <figcaption>
-              ENVIRONMENT SETTINGS / Illustrative preview · Select to enlarge
+              ENVIRONMENT SETTINGS / 2.8.0 · Fictional data · Select to enlarge
             </figcaption>
           </figure>
         </article>
@@ -231,17 +233,17 @@
           </div>
           <figure class="preview">
             <a
-              href="docs/imgs/purge_activity_1280x800.png"
+              href="docs/imgs/release-2.8.0/activity-1280x800.png"
               aria-label="View full-size purge activity preview"
               ><img
-                src="docs/imgs/purge_activity_1280x800.png"
+                src="docs/imgs/release-2.8.0/activity-1280x800.png"
                 width="1280"
                 height="800"
-                alt="Illustrative purge activity with search, status filtering and recent request results."
+                alt="Version 2.8.0 purge activity with program filtering and response details, using fictional data."
                 loading="lazy"
             /></a>
             <figcaption>
-              PURGE ACTIVITY / Illustrative preview · Select to enlarge
+              PURGE ACTIVITY / 2.8.0 · Fictional data · Select to enlarge
             </figcaption>
           </figure>
         </article>
@@ -272,8 +274,8 @@
           <h2 id="setup-title">A few steps to your first action.</h2>
           <p>
             You need Chrome 120+, an AEM as a Cloud Service publish environment
-            and suitable edge and purge keys. The toolkit does not provision
-            services or issue credentials.
+            and a purge key. BYO CDN also needs an edge key. The toolkit does
+            not provision services or issue credentials.
           </p>
         </div>
         <ol class="setup-steps">
@@ -304,7 +306,8 @@
           <li>
             <h3>Save your controls</h3>
             <p>
-              Add your edge key and a purge key if needed. Choose tab or window
+              Select Standard Adobe CDN or BYO customer CDN. Add a purge key for
+              purge actions; BYO also needs an edge key. Choose tab or window
               opening, purge mode and confirmations. Select
               <strong>Save environment</strong> and grant access to the
               configured hosts.
@@ -382,6 +385,37 @@
           <h2 id="support-title">A little help, when you need it.</h2>
         </div>
         <details>
+          <summary>Can I use a separate preview service with BYO CDN?</summary>
+          <p>
+            Configure an optional Preview URL and separate preview keys in
+            Settings, or explicitly choose to reuse publish keys. Set each
+            domain mapping's Service to Publish or Preview. The popup detects
+            the service from that mapping and opens or purges the matching
+            ingress. Preview full purge affects Preview only; activity and
+            confirmations identify the service. Existing mappings remain
+            Publish.
+          </p>
+        </details>
+        <details>
+          <summary>Which CDN setup should I choose?</summary>
+          <p>
+            Choose Standard Adobe CDN when public domains are mapped directly in
+            Cloud Manager. Purge requests target the public domain with a purge
+            key; no edge key or forwarded-host header is sent, and there is no
+            publish button. Choose BYO customer CDN for the existing
+            publish-ingress flow with edge-key and forwarded-host headers.
+            Existing settings remain BYO. Full purge affects the entire AEM
+            service in both modes.
+          </p>
+          <p>
+            <a
+              href="https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-cache-purge"
+              rel="noreferrer"
+              >Adobe CDN purge documentation ↗</a
+            >
+          </p>
+        </details>
+        <details>
           <summary>How do programs and automatic selection work?</summary>
           <p>
             Each program has its own environments and credentials. Settings
@@ -445,7 +479,7 @@
       </section>
     </main>
     <footer>
-      <span>AEM CDN Toolkit <span class="footer-version">/ 2.7.0</span></span>
+      <span>AEM CDN Toolkit <span class="footer-version">/ 2.8.0</span></span>
       <p>
         Independent community tool. Not affiliated with or endorsed by Adobe or
         Google.

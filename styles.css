@@ -385,7 +385,7 @@ textarea {
 }
 .country-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 2fr) minmax(0, 1fr) auto;
+  grid-template-columns: 80px minmax(0, 2fr) minmax(0, 1fr) 120px auto;
   gap: 10px;
   align-items: end;
   border-bottom: 1px solid var(--border);
@@ -673,4 +673,170 @@ dialog .actions {
   font-size: 12px;
   font-weight: 650;
   overflow-wrap: anywhere;
+}
+
+.response-log pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.header-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.program-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.program-switcher label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.program-switcher select {
+  width: 190px;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+.program-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.program-menu summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  list-style: none;
+  background: var(--surface);
+}
+.program-menu summary::-webkit-details-marker {
+  display: none;
+}
+.program-menu summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.program-menu[open] summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+.program-menu:not([open]) .program-menu-panel {
+  display: none;
+}
+.program-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  z-index: 5;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #102a3b26;
+}
+.program-menu-panel .hint {
+  margin: 0 0 4px;
+}
+.program-menu-panel button {
+  text-align: left;
+}
+.popup-program {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  width: 140px;
+  flex: 0 0 140px;
+}
+.popup-program select {
+  width: 100%;
+  min-height: 36px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 12px;
+}
+.popup-program label {
+  font-size: 10px;
+}
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.popup-header .brand {
+  min-width: 0;
+  gap: 8px;
+}
+.popup-header .eyebrow {
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+.popup .popup-header h1 {
+  font-size: 18px;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .header-tools {
+    width: 100%;
+    align-items: stretch;
+  }
+  .header-tools > a {
+    align-self: flex-end;
+  }
+  .header-tools .program-switcher select {
+    flex: 1;
+  }
+}
+
+.settings-program {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-program select {
+  width: 240px;
+  flex: 0 1 240px;
+}
+.settings-program .program-menu-panel {
+  left: 0;
+  right: auto;
+}
+@media (max-width: 700px) {
+  .settings-program select {
+    flex: 1;
+    width: 0;
+  }
+  .settings-program .program-menu-panel {
+    left: auto;
+    right: 0;
+  }
 }

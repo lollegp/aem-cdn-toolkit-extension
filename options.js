@@ -165,6 +165,10 @@ function addCountry(
     ['publishPathPrefix', 'Publish path prefix', '/'],
   ]) {
     const wrap = document.createElement('label');
+    if (field === 'publishPathPrefix') {
+      wrap.dataset.byo = '';
+      wrap.hidden = $('cdnMode')?.value === 'standard';
+    }
     wrap.textContent = label;
     const input = document.createElement('input');
     input.dataset.field = field;
@@ -174,6 +178,20 @@ function addCountry(
     wrap.append(input);
     row.append(wrap);
   }
+  const serviceLabel = document.createElement('label');
+  serviceLabel.textContent = 'Service';
+  const service = document.createElement('select');
+  service.dataset.field = 'service';
+  for (const value of ['publish', 'preview']) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value === 'preview' ? 'Preview' : 'Publish';
+    service.append(option);
+  }
+  service.value = country.service || 'publish';
+  service.disabled = $('cdnMode')?.value === 'standard';
+  serviceLabel.append(service);
+  row.append(serviceLabel);
   const remove = document.createElement('button');
   remove.textContent = 'Remove';
   remove.className = 'secondary';
@@ -187,21 +205,44 @@ function addCountry(
 function readCountries() {
   return [...$('countries').children].map((row) =>
     Object.fromEntries(
-      [...row.querySelectorAll('input')].map((i) => [
-        i.dataset.field,
-        i.dataset.field === 'code'
-          ? i.value.trim().toUpperCase()
-          : i.value.trim(),
-      ]),
+      [...row.querySelectorAll('input'), ...row.querySelectorAll('select')].map(
+        (i) => [
+          i.dataset.field,
+          i.dataset.field === 'code'
+            ? i.value.trim().toUpperCase()
+            : i.value.trim(),
+        ],
+      ),
     ),
   );
 }
+function updateCdnMode() {
+  const standard = $('cdnMode')?.value === 'standard';
+  for (const field of ['previewEdgeKey', 'previewPurgeKey'])
+    if ($(field))
+      $(field).disabled = $('previewUsePublishKeys')?.checked || standard;
+  document.querySelectorAll?.('[data-field="service"]').forEach((element) => {
+    element.disabled = standard;
+    if (standard) element.value = 'publish';
+  });
+  document.querySelectorAll?.('[data-byo]').forEach((element) => {
+    element.hidden = standard;
+  });
+}
+$('previewUsePublishKeys')?.addEventListener('change', updateCdnMode);
+$('cdnMode')?.addEventListener('change', () => {
+  updateCdnMode();
+  markDirty();
+});
 function show() {
   dirty = false;
   shownEnvironment = $('environment').value;
   const e = selected();
   $('emptyEnvironments').hidden = !!e;
   if (!e) {
+    for (const field of ['previewUrl', 'previewEdgeKey', 'previewPurgeKey'])
+      if ($(field)) $(field).value = '';
+    if ($('previewUsePublishKeys')) $('previewUsePublishKeys').checked = false;
     for (const id of [
       'environmentName',
       'publishUrl',
@@ -222,8 +263,13 @@ function show() {
     return;
   }
   const s = secrets[e.name] || {};
+  if ($('cdnMode')) $('cdnMode').value = e.cdnMode || 'byo';
   $('environmentName').value = e.name;
   $('publishUrl').value = e.publishUrl;
+  for (const field of ['previewUrl', 'previewEdgeKey', 'previewPurgeKey'])
+    if ($(field)) $(field).value = e[field] || '';
+  if ($('previewUsePublishKeys'))
+    $('previewUsePublishKeys').checked = e.previewUsePublishKeys || false;
   $('publishOpenMode').value = e.publishOpenMode;
   $('cacheParam').value = e.cacheParam;
   $('purgeMode').value = e.purgeMode;
@@ -234,6 +280,7 @@ function show() {
   $('purgeKey').value = s.purgeKey || '';
   $('countries').replaceChildren();
   e.countries.forEach(addCountry);
+  updateCdnMode();
   buttonLock(busy);
   status('');
 }
@@ -277,6 +324,7 @@ async function persistConfig(
 }
 function buttonLock(value) {
   busy = value;
+  updateCdnMode();
   for (const id of [
     'program',
     'addProgram',
@@ -331,7 +379,11 @@ $('save').addEventListener('click', async () => {
       name = $('environmentName').value.trim(),
       e = draft.environments.find((e) => e.name === originalName);
     e.name = name;
+    e.cdnMode = $('cdnMode')?.value || e.cdnMode || 'byo';
     e.publishUrl = $('publishUrl').value.trim();
+    for (const field of ['previewUrl', 'previewEdgeKey', 'previewPurgeKey'])
+      e[field] = $(field)?.value.trim() || '';
+    e.previewUsePublishKeys = $('previewUsePublishKeys')?.checked || false;
     e.publishOpenMode = $('publishOpenMode').value;
     e.cacheParam = $('cacheParam').value.trim();
     e.purgeMode = $('purgeMode').value;
@@ -489,6 +541,8 @@ $('clearSecrets').addEventListener('click', async () => {
         ...e,
         edgeKey: '',
         purgeKey: '',
+        previewEdgeKey: '',
+        previewPurgeKey: '',
       })),
     });
     const next = workspace.programs ? exportConfiguration(workspace) : cleared;

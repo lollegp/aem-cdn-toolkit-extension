@@ -46,6 +46,11 @@ class Element {
 let instance = 0;
 async function setup({ savedConfig = defaults() } = {}) {
   const ids = [
+    'previewUrl',
+    'previewEdgeKey',
+    'previewPurgeKey',
+    'previewUsePublishKeys',
+    'cdnMode',
     'program',
     'addProgram',
     'renameProgram',
@@ -574,4 +579,47 @@ test('Duplicate program preserves all settings but excludes keys', async () => {
   elements.program.value = 'default';
   await elements.program.listeners.change();
   assert.equal(elements.edgeKey.value, 'existing-edge');
+});
+
+test('Settings saves Standard mode without publish origin or edge key and retains it after reload', async () => {
+  const h = await setup();
+  h.elements.cdnMode.value = 'standard';
+  await h.elements.cdnMode.listeners.change();
+  h.elements.publishUrl.value = '';
+  await h.elements.save.listeners.click();
+  assert.equal(h.local.config.environments[0].cdnMode, 'standard');
+  assert.equal(h.local.config.environments[0].publishUrl, '');
+  assert.equal(h.local.config.environments[0].edgeKey, '');
+  const reopened = await setup({ savedConfig: h.local.config });
+  assert.equal(reopened.elements.cdnMode.value, 'standard');
+});
+
+test('Preview settings and mapping service survive saving and duplication excludes all keys', async () => {
+  const initial = defaults();
+  initial.environments[0].publishUrl = 'https://publish.example.invalid/';
+  initial.environments[0].countries = [
+    {
+      code: 'US',
+      publicBaseUrl: 'https://us.example.invalid/',
+      publishPathPrefix: '/',
+    },
+  ];
+  const h = await setup({ savedConfig: initial });
+  h.elements.previewUrl.value = 'https://preview.example.invalid/';
+  h.elements.previewEdgeKey.value = 'preview-edge';
+  h.elements.previewPurgeKey.value = 'preview-purge';
+  h.elements.countries.children[0].querySelectorAll('select')[0].value =
+    'preview';
+  await h.elements.save.listeners.click();
+  assert.equal(
+    h.local.config.environments[0].previewUrl,
+    'https://preview.example.invalid/',
+  );
+  assert.equal(h.local.config.environments[0].countries[0].service, 'preview');
+  assert.equal(h.local.config.environments[0].previewEdgeKey, 'preview-edge');
+  globalThis.prompt = () => 'Preview copy';
+  await h.elements.duplicateProgram.listeners.click();
+  const copy = h.local.config.programs[1].environments[0];
+  assert.equal(copy.previewEdgeKey, '');
+  assert.equal(copy.previewPurgeKey, '');
 });

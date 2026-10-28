@@ -15,7 +15,7 @@ Existing version 1 configurations are migrated when each environment has one pub
 
 ## Programs, appearance and activity
 
-Settings opens with the selected program. Existing configurations appear under **Default**. Use **Add program**, **Rename**, **Duplicate without keys**, or **Delete program** to manage independent configurations. Every program contains its own environments, mappings, credentials and purge policies. Environment names must be unique within a program. Keep at least one program.
+The Settings tab shows a compact program selector above environments; **Manage** contains program actions. The popup selector is in its top-right header. Settings opens with the selected program. Existing configurations appear under **Default**. Use **Add program**, **Rename**, **Duplicate without keys**, or **Delete program** to manage independent configurations. Every program contains its own environments, mappings, credentials and purge policies. Environment names must be unique within a program. Keep at least one program.
 
 The toolbar and popup scan URLs across all programs, independently of the last Settings selection. Unique matches select the program automatically. Overlapping matches require an explicit program or environment choice before page actions. Publish context and purge activity retain program identity.
 
@@ -33,11 +33,69 @@ Environments, saved keys and preferences are shared with regular browsing. Page 
 
 Incognito purge attempts are never saved to persistent activity history, including success, failure and unknown outcomes. Read the result in the popup before closing it. Settings and saved activity open in a regular window. Publish tab context stays in session memory and its header rules are removed when the tab closes. Settings changes and credential clearing apply across both browsing modes.
 
+## CDN setup
+
+Select **CDN setup** per environment:
+
+- **Standard Adobe CDN (Cloud Manager domains)**: configure each country's final public URL. Page purge targets that public URL and keeps its public path. No publish origin, edge key, forwarded-host header, or publish path rewriting is used. The publish navigation button is hidden. Purge still requires `X-AEM-Purge-Key`; soft/hard/full purge and cache-parameter navigation remain available.
+- **BYO customer CDN**: configure the Adobe publish ingress plus country mappings and publish path prefixes. Requests use `X-AEM-Edge-Key` and `X-Forwarded-Host`; purge additionally requires `X-AEM-Purge-Key`. Authenticated publish navigation remains available.
+
+Existing configurations without `cdnMode` default to `byo`. JSON import/export preserves the per-environment `cdnMode` field (`standard` or `byo`). Saving Standard clears the saved publish origin and edge key; re-enter them if switching back to BYO. Changing setup invalidates active publish context/header rules.
+
+Standard full purge targets the selected public origin with `X-AEM-Purge: all`, but its effect is the entire associated AEM service, including other domains/countries. It is not a domain-only purge. Both setups purge Adobe CDN, not Dispatcher or a separate customer CDN.
+
+Adobe confirms that purge targets may use any domain associated with the AEM service, with a purge key. The additional edge-key/forwarded-host headers apply to customer-managed CDN integration. The public domain must actually route to the intended Adobe CDN service; Cloud Manager domain configuration and DNS must be in place.
+
+- [Adobe: Purging the CDN cache](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-cache-purge)
+- [Adobe: CDN credentials and authentication](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-credentials-authentication)
+
+Example Standard environment:
+
+```json
+{
+  "name": "Production",
+  "cdnMode": "standard",
+  "publishUrl": "",
+  "edgeKey": "",
+  "purgeKey": "",
+  "countries": [
+    {
+      "code": "GB",
+      "publicBaseUrl": "https://www.example.invalid/gb/",
+      "publishPathPrefix": "/"
+    }
+  ],
+  "cacheParam": "_cacheBust",
+  "purgeMode": "soft",
+  "publishOpenMode": "tab",
+  "fullPurgeEnabled": false,
+  "confirmPagePurge": false,
+  "confirmFullPurge": false
+}
+```
+
+Set the actual purge key privately in Settings. `publishOpenMode` and `publishPathPrefix` are unused in Standard mode.
+
+## BYO preview service
+
+In a BYO environment, set the optional **AEM preview URL** to the preview HTTPS origin. Configure **Preview edge key** and **Preview purge key**, or explicitly select **Use publish keys for preview** when those credentials are shared. Blank separate keys do not silently fall back to publish keys. The preview tier must have the appropriate Adobe CDN authentication/purge rules deployed.
+
+Each domain/country row has a **Service** selector: **Publish** or **Preview**. The mapping service chooses its ingress URL and credentials. The same country code may exist once per service, but mapped public URL prefixes must remain distinct. Existing rows default to Publish. A preview mapping requires a configured preview URL. The path-prefix field is applied to whichever service the mapping selects.
+
+The popup detects the service from the public domain mapping. Its navigation button changes to **Open preview** for preview mappings. On a directly opened preview ingress URL, select a preview country mapping; a publish mapping cannot be used there. Tabs opened through the extension remember program, country, service and forwarded hostname and retain scoped header injection. Publish and preview origins must be distinct and cannot collide with another environment's ingress within the program.
+
+Page/full purge target only the selected service. Full purge on Preview affects that preview service's resources/countries, not Publish. Activity shows a Service field and adds Preview to its program badge; confirmations identify the service. History without a service field is treated as Publish. Standard mode remains publish-only.
+
+JSON fields are `previewUrl`, `previewEdgeKey`, `previewPurgeKey`, `previewUsePublishKeys`, and mapping `service` (`publish` or `preview`, omitted means Publish). Import/export preserve setup; exports without keys, program duplication and key clearing remove both services' keys. Changing preview origins, keys or reuse policy clears active header rules/context. Incognito preview activity remains unsaved.
+
+- [Adobe: BYO CDN supports publish and preview tiers](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn)
+- [Adobe: Configure authentication for publish or preview](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-credentials-authentication)
+
 ## Environment and country settings
 
-Fresh installations start with no environments. The list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are examples in the optional config.example.json template. Each environment has one publish origin and its countries share the environment edge key and purge key.
+Fresh installations start with no environments. The list is configurable, with no fixed count or required names. DEV, DEV2, TEST, STAGE and PROD are examples in the optional config.example.json template. Each BYO environment has one publish origin and shares its edge and purge keys across countries. Standard environments use final public domains and need only a purge key.
 
-In Settings, use **Add environment** to create an environment with a unique name. Configure its publish URL, country mappings, keys and purge settings, then save. Edit **Environment name** and save to rename it. Names are trimmed and must be unique regardless of case. **Remove environment** removes its saved mappings and keys after confirmation. Renaming or removing an environment clears active publish headers; reopen publish windows afterward. Activity records retain their original environment labels. You can remove every environment and add new ones later.
+In Settings, use **Add environment** to create an environment with a unique name. Configure its publish URL, country mappings, keys and purge settings, then save. Edit **Environment name** and save to rename it. Names are trimmed and must be unique regardless of case. Country codes are unique per service. **Remove environment** removes its saved mappings and keys after confirmation. Renaming or removing an environment clears active publish headers; reopen publish windows afterward. Activity records retain their original environment labels. You can remove every environment and add new ones later.
 
 Use the **up and down arrow buttons** beside the Settings environment dropdown to reorder the selected environment. Order is saved immediately and included in exported configurations. Unsaved field edits remain intact.
 
@@ -57,7 +115,7 @@ New custom environments start with full purge disabled and both confirmations of
 | Public URL                     | Country     | Public site origin, optionally with a path prefix                                                                  |
 | Publish path prefix            | Country     | Optional replacement for the public URL prefix; normally `/`                                                       |
 
-Different environments must use different publish origins. This keeps purge targets and per-environment settings unambiguous.
+Different BYO environments within a program must use different publish origins. This keeps purge targets and per-environment settings unambiguous.
 
 Add your own environments in Settings, or adapt `config.example.json` as an import template, replacing its fictional `.example.invalid` URLs. Release config.json must stay empty. Save each environment before switching. Switching environments warns about unsaved edits; Discard changes restores the saved values. Closing Settings also warns when edits are pending. Saving requests optional domain access for the configured public hosts and publish host.
 
@@ -107,6 +165,8 @@ Click the icon on any tab to open the popup and access Settings. Page actions ar
 
 ## Automatic forwarded host
 
+This section applies only to BYO mode. Standard mode sends no forwarded-host header.
+
 `X-Forwarded-Host` is generated from the public site's **host**, for example `www.example.invalid`. It contains no `https://`, path, query or fragment. A nondefault port is included when present.
 
 When opening publish, the extension remembers the environment, country and public host for that tab in session storage. Subsequent actions in that shared publish tab use the remembered country. Switching its country is blocked to prevent mixing the original navigation headers with another public host.
@@ -116,6 +176,8 @@ If you open a publish URL manually, select its country explicitly because the sh
 If a public page has no mapping, or its selected country does not match the actual URL, the action is rejected. Reopen the popup when the current page changes.
 
 ## Open AEM publish
+
+Available only in BYO mode. Standard mode hides this button and the worker rejects publish actions.
 
 Select **Open AEM publish**. The extension opens a new tab by default. In Settings, choose **Open publish page in** for each environment and save to use a new window instead. Both modes install scoped request header rules and save the country context before navigating to publish. Existing configurations default to a new tab.
 
@@ -237,7 +299,7 @@ The PNG icons are packaged with the extension and require no build step. When up
 
 ## Release package and website
 
-Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.7.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
+Run `npm run package` to verify the project and build `dist/aem-cdn-toolkit-2.8.0.zip`. The builder uses an explicit file list, requires empty release configuration, checks permissions and module inclusion, verifies ZIP contents byte-for-byte, and writes a SHA-256 checksum. It also builds `dist/site` for GitHub Pages. Python 3 is required; no Python packages are needed.
 
 The bundled [help page](../help.html) and [privacy policy](../privacy.html) also form the public site at https://lollegp.github.io/aem-cdn-toolkit-extension/.
 
@@ -261,3 +323,7 @@ This replaces deployment from the extension repository's own Pages environment. 
 See [store listing and release checklist](store/RELEASE.md). Creating the ZIP does not publish the site or submit the extension. Live Chrome behavior and screenshots still require the documented manual checks.
 
 Configuration writes are serialized in the background worker and compare the expected saved configuration, so a stale Settings tab cannot silently overwrite newer data. Credential or mapping changes clear publish session state; pending actions are invalidated if configuration changes. New activity records omit query strings and fragments; older records can be removed with Clear activity.
+
+### Response logs
+
+New purge activity includes an expandable **Response body** preview for successful and failed HTTP responses. JSON is formatted; text/HTML is displayed literally. Previews are limited to 16 KiB of response input. Oversized streamed bodies and incomplete or invalid JSON are omitted to avoid exposing partially redacted credentials. Incomplete HTTP success responses have an unknown purge outcome. Known request keys and JSON credential fields are redacted. Empty or unreadable bodies are identified. Existing records have no retroactive response body. Incognito responses are never persisted. Response previews are diagnostic data from your configured service; clear activity to delete them.

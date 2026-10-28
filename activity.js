@@ -76,6 +76,7 @@ async function history() {
         search &&
         ![
           programLabel(record),
+          record.service || 'publish',
           record.environment,
           record.country,
           record.target,
@@ -108,6 +109,7 @@ async function history() {
       const badge = document.createElement('span');
       badge.className = 'program-badge';
       badge.textContent = 'Program: ' + programLabel(record);
+      if (record.service === 'preview') badge.textContent += ' · Preview';
       badge.title = 'Program ID: ' + programIdentity(record);
       title.append(badge);
       card.append(title);
@@ -116,7 +118,20 @@ async function history() {
       const rows = [
         ['Time: ', new Date(record.startedAt).toLocaleString()],
         ['PURGE ', record.target],
-        ['X-Forwarded-Host: ', record.forwardedHost],
+        ...(record.forwardedHost
+          ? [['X-Forwarded-Host: ', record.forwardedHost]]
+          : []),
+        ...(record.cdnMode
+          ? [
+              [
+                'CDN setup: ',
+                record.cdnMode === 'standard'
+                  ? 'Standard Adobe CDN'
+                  : 'BYO customer CDN',
+              ],
+            ]
+          : []),
+        ['Service: ', record.service === 'preview' ? 'Preview' : 'Publish'],
         ['Mode: ', record.mode],
       ];
       if (record.httpStatus) rows.push(['HTTP ', record.httpStatus]);
@@ -132,6 +147,21 @@ async function history() {
         row.append(heading);
         row.append(content);
         details.append(row);
+      }
+      if (typeof record.responseBody === 'string') {
+        const response = document.createElement('details');
+        response.className = 'response-log';
+        const summary = document.createElement('summary');
+        summary.textContent = 'Response body';
+        const body = document.createElement('pre');
+        body.textContent =
+          record.responseBody ||
+          (record.responseReadError
+            ? 'Response body could not be read.'
+            : '(Empty response body)');
+        response.append(summary);
+        response.append(body);
+        details.append(response);
       }
       card.append(details);
       $('history').append(card);

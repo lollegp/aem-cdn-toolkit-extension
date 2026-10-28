@@ -58,7 +58,7 @@ Use `programList(workspace)` for iteration and
 Call `validateConfig` before accepting or persisting changes. Do not flatten
 programs into one environment list when looking up credentials or actions.
 
-An environment contains its name, publish origin, edge/purge keys, country
+An environment contains its CDN setup, name, publish origin, edge/purge keys, country
 mappings, cache parameter, purge mode, publish destination and confirmation/full
 purge flags. `createEnvironment` is the default factory. `defaults()` supplies
 legacy example environments used by tests; it is not the first-install config.
@@ -80,6 +80,18 @@ Import replaces the entire workspace. Export/key clearing cover all programs;
 duplication uses the key-stripping export behavior. Reset returns to an empty
 Default configuration and retains saved activity. Appearance is independent of
 configuration import/export/reset.
+
+## CDN setup
+
+`cdnMode` is `byo` (default for legacy configurations and new environments) or `standard`. Standard resolves only public mappings, preserves public paths, and returns an empty forwarded host with no publish URL. Page purge uses `page.publicUrl`; full purge uses its origin. BYO retains publish path rewriting and ingress routing.
+
+Pass the environment mode as the fourth `requestHeaders` argument for purge. Standard sends only purge key/mode, even if legacy secrets contain an edge key. The worker rejects Standard publish actions before navigation or rule installation; the popup hides/disables publish and Settings hides BYO-only fields. Validation clears Standard publish origins/edge keys. Mode is included in credential identity, so setup changes clear active rules/context. Permissions derive from normalized targets. Activity records include setup and omit empty forwarded-host rows.
+
+## BYO service routing
+
+Mapping `service` defaults to Publish; Preview maps to `previewUrl`. `mappingId` retains legacy country codes for Publish and appends `@preview` for Preview, allowing the same country code in both services without mixing actions or tab context. `serviceOrigin` selects ingress, `serviceSecrets` selects separate preview credentials unless `previewUsePublishKeys` explicitly enables reuse. No implicit preview-to-publish credential fallback is allowed.
+
+`resolvePage` rejects cross-service ingress/mapping combinations and returns the service with the target URL. Full purge uses that service's origin. Worker context checks, credential identity, purge concurrency and history carry the service. Preview keys participate in redaction, export sanitization, duplication and key clearing. Origin validation prevents collisions within a program, and permissions include preview hosts. Standard mode rejects preview mappings.
 
 ## URL recognition and action flow
 
@@ -125,7 +137,7 @@ program name at request time. Legacy records map to Default. Deleted programs
 with retained records remain available in activity filters. Duplicate historical
 labels are disambiguated by ID in the filter.
 
-New activity target values omit query strings/fragments. Never log keys. Render
+New activity target values omit query strings/fragments. Activity also retains bounded response previews, formats JSON, redacts known keys and JSON credential fields, and renders previews as literal text in expandable sections. Never log keys. Render
 external/configured values with `textContent`. Incognito outcomes are shown in
 the popup but excluded from persistent history, including failures. Saved
 configuration remains shared because the extension uses spanning Incognito.
@@ -143,7 +155,7 @@ npm run package
 
 Tests use Node's built-in runner with fake Chrome APIs and DOM elements:
 
-- `core.test.js`, `programs.test.js`: validation, migration, matching, request
+- `core.test.js`, `programs.test.js`, `cdn-mode.test.js`, `preview.test.js`: validation, migration, matching, request
   construction and program isolation/export behavior.
 - `storage.test.js`: saved/bundled configuration and secret fallback.
 - `activation.test.js`, `icons.test.js`: toolbar recognition and icon assets.

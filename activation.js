@@ -1,4 +1,9 @@
-import { httpsURL, matchPublicCountry, programList } from './core.js';
+import {
+  httpsURL,
+  matchPublicCountry,
+  mappingId,
+  programList,
+} from './core.js';
 import { loadConfig } from './storage.js';
 const icons = (state) =>
   Object.fromEntries(
@@ -35,12 +40,21 @@ export function configuredSites(config, value) {
     if (countries.length) {
       let country;
       try {
-        country = matchPublicCountry(env, value).country.code;
+        country = mappingId(matchPublicCountry(env, value).country);
       } catch {
-        if (countries.length === 1) country = countries[0].code;
+        if (countries.length === 1) country = mappingId(countries[0]);
       }
-      return [{ environment: env.name, ...(country ? { country } : {}) }];
+      const mapping = env.countries.find((item) => mappingId(item) === country);
+      return [
+        {
+          environment: env.name,
+          ...(country ? { country } : {}),
+          ...(mapping?.service === 'preview' ? { service: 'preview' } : {}),
+        },
+      ];
     }
+    if (env.previewUrl && url.origin === new URL(env.previewUrl).origin)
+      return [{ environment: env.name, publish: true, service: 'preview' }];
     if (env.publishUrl && url.origin === new URL(env.publishUrl).origin)
       return [{ environment: env.name, publish: true }];
     return [];
@@ -75,9 +89,11 @@ export function startActivation(ready = Promise.resolve()) {
                       (match.programName ? match.programName + ' · ' : '') +
                       match.environment +
                       (match.country
-                        ? ' · ' + match.country
+                        ? ' · ' +
+                          match.country.replace('@preview', ' · Preview')
                         : match.publish
-                        ? ' · Publish'
+                        ? ' · ' +
+                          (match.service === 'preview' ? 'Preview' : 'Publish')
                         : ''),
                   )
                   .join(' / ')

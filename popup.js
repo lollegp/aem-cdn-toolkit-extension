@@ -1,5 +1,6 @@
 import {
   matchPublicCountry,
+  mappingId,
   programList,
   programConfig,
   resolvePage,
@@ -49,10 +50,17 @@ function controls() {
   $('activity').disabled = false;
   const env = selected(),
     policy = purgePolicy(env);
+  $('publish').hidden = env?.cdnMode === 'standard';
+  $('publish').disabled = busy || !actionable || env?.cdnMode === 'standard';
+  let service = 'publish';
+  try {
+    service = page().service || 'publish';
+  } catch {}
   $('publish').textContent =
     env?.publishOpenMode === 'window'
-      ? 'Open publish in new window'
-      : 'Open publish in new tab';
+      ? 'Open ' + service + ' in new window'
+      : 'Open ' + service + ' in new tab';
+  $('purgeAll').textContent = 'Purge entire ' + service + ' service';
   $('purgeAll').hidden = !policy.fullPurgeEnabled;
   $('purgeAll').disabled = busy || !actionable || !policy.fullPurgeEnabled;
   $('bulkHint').textContent = !env
@@ -60,14 +68,19 @@ function controls() {
     : !policy.fullPurgeEnabled
     ? 'Full environment purge is disabled for ' + env.name + '.'
     : policy.confirmFullPurge
-    ? 'Full purge affects every country in this AEM environment.'
-    : 'Full purge runs immediately and affects every country in this AEM environment.';
+    ? 'Full purge affects every country in the selected ' +
+      service +
+      ' service.'
+    : 'Full purge runs immediately and affects every country in the selected ' +
+      service +
+      ' service.';
   if (
     context &&
     (context.program || 'default') === programId &&
     selected()?.name === context.environment &&
-    selected()?.publishUrl &&
-    new URL(tab.url).origin === new URL(selected().publishUrl).origin
+    [selected()?.publishUrl, selected()?.previewUrl]
+      .filter(Boolean)
+      .some((origin) => new URL(tab.url).origin === new URL(origin).origin)
   )
     $('country').disabled = true;
 }
@@ -77,8 +90,12 @@ function updateCountry() {
   pendingAction = undefined;
   try {
     const p = page();
-    $('match').textContent = 'Country mapping ready.';
-    $('forwardedHost').textContent = 'X-Forwarded-Host: ' + p.forwardedHost;
+    $('match').textContent =
+      'Country mapping ready' +
+      (p.service === 'preview' ? ' · Preview service.' : '.');
+    $('forwardedHost').textContent = p.forwardedHost
+      ? 'X-Forwarded-Host: ' + p.forwardedHost
+      : 'Standard Adobe CDN · Requests target the public domain.';
   } catch (error) {
     $('match').textContent = error.message;
     $('forwardedHost').textContent = '';
@@ -93,12 +110,14 @@ function updateEnvironment() {
   $('country').append(placeholder);
   for (const c of selected()?.countries || []) {
     const o = document.createElement('option');
-    o.value = c.code;
-    o.textContent = c.code;
+    o.value = mappingId(c);
+    o.textContent = c.code + (c.service === 'preview' ? ' · Preview' : '');
     $('country').append(o);
   }
   try {
-    $('country').value = matchPublicCountry(selected(), tab.url).country.code;
+    $('country').value = mappingId(
+      matchPublicCountry(selected(), tab.url).country,
+    );
   } catch {
     if (
       context &&
@@ -120,6 +139,10 @@ async function latest() {
   const r = history.find(
     (r) =>
       (r.program || 'default') === programId &&
+      (r.service || 'publish') ===
+        (selected()?.countries.find(
+          (country) => mappingId(country) === $('country').value,
+        )?.service || 'publish') &&
       r.environment === $('environment').value,
   );
   $('latest').textContent = r
@@ -134,6 +157,13 @@ async function latest() {
 }
 async function run(action) {
   if (busy) return;
+  if (action === 'publish' && selected()?.cdnMode === 'standard') {
+    status(
+      'Publish access is unavailable for Standard Adobe CDN environments.',
+      true,
+    );
+    return;
+  }
   let expectedAction;
   try {
     const p = page();
@@ -183,6 +213,9 @@ async function run(action) {
       action,
       program: programId,
       environment: env.name,
+      service:
+        selected()?.countries.find((mapping) => mappingId(mapping) === country)
+          ?.service || 'publish',
       country,
       tabId: tab.id,
       expectedURL: tab.url,
@@ -218,14 +251,17 @@ function confirmPurge(action) {
       programList(workspace).find((program) => program.id === programId).name +
       '\nEnvironment: ' +
       env.name +
+      '\nService: ' +
+      (p.service || 'publish') +
       '\nScope: ' +
       (scope === 'all'
         ? 'ALL countries and cached resources'
         : 'Current page') +
       '\nPURGE ' +
       request.url +
-      '\nX-Forwarded-Host: ' +
-      p.forwardedHost +
+      (p.forwardedHost
+        ? '\nX-Forwarded-Host: ' + p.forwardedHost
+        : '\nCDN setup: Standard Adobe CDN') +
       '\nMode: ' +
       request.mode;
     $('confirmed').checked = false;
@@ -250,7 +286,10 @@ $('environment').addEventListener('change', () => {
   updateEnvironment();
   latest();
 });
-$('country').addEventListener('change', updateCountry);
+$('country').addEventListener('change', () => {
+  updateCountry();
+  latest();
+});
 $('bypass').addEventListener('click', () => run('bypass'));
 $('publish').addEventListener('click', () => run('publish'));
 $('purge').addEventListener('click', () => requestPurge('purge'));
